@@ -102,6 +102,7 @@ class InteractiveDoctorBot {
     this.initAudioSynthesizer();
     this.initSpeechRecognition();
     this.buildBotInterface();
+    this.initVisitorWelcome();
   }
 
   initAudioSynthesizer() {
@@ -113,6 +114,166 @@ class InteractiveDoctorBot {
       if (speechSynthesis.onvoiceschanged !== undefined) {
         speechSynthesis.onvoiceschanged = load;
       }
+    }
+  }
+
+  getSweetWelcomeVoice(lang = 'en') {
+    if (!this.availableVoices || this.availableVoices.length === 0) {
+      this.availableVoices = this.synth ? this.synth.getVoices() : [];
+    }
+    const voices = this.availableVoices;
+    if (lang === 'hi') {
+      const v = voices.find(x => x.lang.includes('hi') || x.name.includes('हिन्दी'));
+      if (v) return v;
+    } else if (lang === 'as') {
+      const v = voices.find(x => x.lang.includes('as') || x.lang.includes('bn') || x.lang.includes('hi-IN'));
+      if (v) return v;
+    }
+
+    // Preference for sweet, melodious, friendly voices
+    const sweetNames = [
+      'Google UK English Female',
+      'Google US English',
+      'Microsoft Hazel',
+      'Microsoft Susan',
+      'Microsoft Zira',
+      'Microsoft Jenny',
+      'Samantha',
+      'Victoria',
+      'Karen',
+      'Microsoft Heera'
+    ];
+    for (const name of sweetNames) {
+      const match = voices.find(v => v.name.includes(name));
+      if (match) return match;
+    }
+    const anyFemale = voices.find(v => v.name.toLowerCase().includes('female') && v.lang.startsWith('en'));
+    if (anyFemale) return anyFemale;
+    return this.getDoctorVoice(lang);
+  }
+
+  speakSweetWelcome(customText) {
+    if (!this.synth) return;
+    this.synth.cancel();
+
+    const welcomePhrases = {
+      en: "Hey there, What are you looking for? How may I help you?",
+      hi: "नमस्ते! आप क्या ढूँढ रहे हैं? मैं आपकी कैसे मदद करूँ?",
+      as: "নমস্কাৰ! আপুনি কি বিচাৰিছে? মই আপোনাক কেনেকৈ সহায় কৰিব পাৰোঁ?"
+    };
+
+    const phrase = customText || welcomePhrases[this.currentLanguage] || welcomePhrases.en;
+    const cleanText = phrase.replace(/<[^>]*>/g, '').replace(/👋|🚨|●|★|🛏|📞|📍|👨‍⚕️|💊|🔬|🥗/g, '');
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+
+    const voice = this.getSweetWelcomeVoice(this.currentLanguage);
+    if (voice) {
+      utterance.voice = voice;
+      utterance.lang = voice.lang;
+    } else {
+      utterance.lang = this.currentLanguage === 'hi' ? 'hi-IN' : (this.currentLanguage === 'as' ? 'bn-IN' : 'en-GB');
+    }
+
+    // Sweet, charming, cheerful, reassuring tone
+    utterance.pitch = 1.15; // slightly higher pitch for sweet welcoming tone
+    utterance.rate = 0.94;  // relaxed, comfortable tempo
+    utterance.volume = 1.0;
+
+    utterance.onstart = () => {
+      this.hasWelcomedWithVoice = true;
+      this.setSpeaking(true);
+      const pill = document.getElementById('docWelcomePill');
+      if (pill) pill.classList.add('speaking');
+    };
+    utterance.onend = () => {
+      this.setSpeaking(false);
+      const pill = document.getElementById('docWelcomePill');
+      if (pill) pill.classList.remove('speaking');
+    };
+    utterance.onerror = () => {
+      this.setSpeaking(false);
+      const pill = document.getElementById('docWelcomePill');
+      if (pill) pill.classList.remove('speaking');
+    };
+
+    try {
+      this.synth.speak(utterance);
+    } catch (e) {
+      console.warn("Speech playback error:", e);
+    }
+  }
+
+  initVisitorWelcome() {
+    this.hasWelcomedWithVoice = false;
+
+    // 1. Show floating animated greeting pill after 700ms
+    setTimeout(() => {
+      const pill = document.getElementById('docWelcomePill');
+      if (pill) pill.classList.add('active');
+    }, 700);
+
+    // 2. Open chat window after 1200ms
+    setTimeout(() => {
+      this.toggleWindow(true);
+    }, 1200);
+
+    // 3. Browser policy: first user gesture triggers the sweet voice reliably
+    const triggerAudioOnFirstGesture = () => {
+      if (!this.hasWelcomedWithVoice) {
+        this.speakSweetWelcome();
+      }
+      window.removeEventListener('pointerdown', triggerAudioOnFirstGesture);
+      window.removeEventListener('touchstart', triggerAudioOnFirstGesture);
+      window.removeEventListener('keydown', triggerAudioOnFirstGesture);
+    };
+
+    window.addEventListener('pointerdown', triggerAudioOnFirstGesture, { once: true });
+    window.addEventListener('touchstart', triggerAudioOnFirstGesture, { once: true });
+    window.addEventListener('keydown', triggerAudioOnFirstGesture, { once: true });
+
+    // Try playing automatically if browser permissions allow
+    setTimeout(() => {
+      if (!this.hasWelcomedWithVoice) {
+        this.speakSweetWelcome();
+      }
+    }, 1500);
+  }
+
+  handleWelcomePillClick() {
+    this.toggleWindow(true);
+    this.speakSweetWelcome();
+  }
+
+  handleWelcomeOption(opt) {
+    if (opt === 'hospital') {
+      this.addUserMessage("Looking for top verified hospitals nearby");
+      const reply = "We have mapped 98 verified tertiary care hospitals, multi-specialty centers, and medical colleges across Guwahati, Delhi, Mumbai, Kolkata, Pune, Hyderabad, and Bengaluru. Which city would you like to explore?";
+      this.addBotMessage(reply);
+      this.speakSweetWelcome(reply);
+      const bar = document.getElementById('cityPillsDock');
+      if (bar) {
+        bar.style.boxShadow = '0 0 25px rgba(85, 220, 203, 0.8)';
+        setTimeout(() => bar.style.boxShadow = '', 2500);
+      }
+    } else if (opt === 'doctor') {
+      this.addUserMessage("I want to consult the doctor");
+      const reply = "I am ready to examine your case. What symptoms or medical trouble are you currently experiencing? You can type them or click the microphone to speak.";
+      this.addBotMessage(reply);
+      this.speakSweetWelcome(reply);
+      this.highlightField('fieldSymptoms');
+    } else if (opt === 'emergency') {
+      this.addUserMessage("I need 24x7 emergency medical care");
+      const reply = "Emergency triage active. 24x7 trauma centers like GMCH, AIIMS, and Apollo are standing by with ICU beds. Are you in Guwahati or another city?";
+      this.addBotMessage(reply);
+      this.speakSweetWelcome(reply);
+      if (typeof filterCategory === 'function') {
+        filterCategory('trauma-emergency');
+      }
+    } else if (opt === 'rx') {
+      this.addUserMessage("Need medicine dosage and prescription review");
+      const reply = "Please tell me what condition you are treating (e.g. fever, headache, acidity, blood pressure), and I will generate a clinical care plan with verified dosages and diet guidelines.";
+      this.addBotMessage(reply);
+      this.speakSweetWelcome(reply);
     }
   }
 
@@ -541,6 +702,116 @@ class InteractiveDoctorBot {
         100% { transform: scale(1.15); box-shadow: 0 0 20px #ef4444; }
       }
 
+      /* Animated Floating Welcome Pill */
+      .doctor-welcome-pill {
+        position: fixed;
+        bottom: 96px;
+        right: 24px;
+        background: rgba(11, 41, 34, 0.95);
+        backdrop-filter: blur(20px);
+        border: 1.5px solid rgba(85, 220, 203, 0.45);
+        border-radius: 18px;
+        padding: 10px 14px;
+        display: none;
+        align-items: center;
+        gap: 12px;
+        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.75), 0 0 20px rgba(32, 185, 130, 0.3);
+        z-index: 9998;
+        max-width: 360px;
+        animation: welcomePop 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+      }
+      .doctor-welcome-pill:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 18px 45px rgba(0, 0, 0, 0.85), 0 0 25px rgba(85, 220, 203, 0.5);
+      }
+      .doctor-welcome-pill.active { display: flex; }
+      .doctor-welcome-pill.speaking {
+        border-color: #8ce8c2;
+        box-shadow: 0 0 25px rgba(85, 220, 203, 0.7);
+      }
+      @keyframes welcomePop {
+        from { opacity: 0; transform: translateY(15px) scale(0.92); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+      }
+      .welcome-wave-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #20b982;
+        box-shadow: 0 0 10px #20b982;
+        animation: pulseDot 1.4s infinite;
+        flex-shrink: 0;
+      }
+      @keyframes pulseDot {
+        0% { transform: scale(0.9); opacity: 0.8; }
+        50% { transform: scale(1.3); opacity: 1; box-shadow: 0 0 16px #55dccb; }
+        100% { transform: scale(0.9); opacity: 0.8; }
+      }
+      .welcome-text-wrap {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        text-align: left;
+      }
+      .welcome-heading {
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        color: var(--mint);
+        letter-spacing: 0.05em;
+      }
+      .welcome-sub {
+        font-size: 12px;
+        color: #ffffff;
+        font-weight: 600;
+        line-height: 1.35;
+      }
+      .welcome-listen-btn {
+        background: linear-gradient(135deg, var(--emerald), var(--turquoise));
+        border: none;
+        border-radius: 9999px;
+        color: #061c18;
+        padding: 6px 12px;
+        font-size: 11px;
+        font-weight: 800;
+        cursor: pointer;
+        white-space: nowrap;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        transition: transform 0.2s, box-shadow 0.2s;
+        flex-shrink: 0;
+      }
+      .welcome-listen-btn:hover {
+        transform: scale(1.08);
+        box-shadow: 0 0 14px rgba(85, 220, 203, 0.8);
+      }
+      .welcome-quick-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 10px;
+      }
+      .welcome-chip-btn {
+        background: rgba(32, 185, 130, 0.2);
+        border: 1px solid rgba(85, 220, 203, 0.4);
+        color: #f4fff9;
+        padding: 6px 12px;
+        border-radius: 9999px;
+        font-size: 11.5px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .welcome-chip-btn:hover {
+        background: rgba(32, 185, 130, 0.4);
+        border-color: #8ce8c2;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(85, 220, 203, 0.3);
+      }
+
       /* Floating Bubble */
       .doctor-floating-bubble {
         position: fixed;
@@ -763,9 +1034,21 @@ class InteractiveDoctorBot {
     `;
     document.body.appendChild(intakeCard);
 
-    // 2. Chatbot Window (Right-side) & Floating Bubble
+    // 2. Chatbot Window (Right-side) & Floating Bubble & Welcome Pill
     const botContainer = document.createElement('div');
     botContainer.innerHTML = `
+      <!-- Animated Floating Welcome Pill -->
+      <div class="doctor-welcome-pill" id="docWelcomePill" onclick="window.interactiveDoctorBot.handleWelcomePillClick()">
+        <span class="welcome-wave-dot"></span>
+        <div class="welcome-text-wrap">
+          <div class="welcome-heading">👋 Dr. Debabrata Roy (Chief Medical AI)</div>
+          <div class="welcome-sub">"Hey there, What are you looking for? How may I help you?"</div>
+        </div>
+        <button class="welcome-listen-btn" id="welcomeListenBtn" title="Listen in sweet voice" onclick="event.stopPropagation(); window.interactiveDoctorBot.speakSweetWelcome();">
+          🔊 Listen
+        </button>
+      </div>
+
       <div class="doctor-floating-bubble" id="docBubble" title="Consult Verified MBBS Doctor">
         <span style="font-size: 28px;">👨‍⚕️</span>
       </div>
@@ -964,10 +1247,10 @@ class InteractiveDoctorBot {
     document.getElementById('botSubtitle').textContent = names[lang].sub;
 
     const notice = lang === 'hi' 
-      ? 'भाषा हिन्दी में सेट की गई है। कृपया अपनी समस्या बताएं।' 
-      : (lang === 'as' ? 'ভাষা অসমীয়াত সলনি কৰা হৈছে। আপোনাৰ লক্ষণ কওক।' : 'Language set to English (IN). Please state your symptoms.');
+      ? 'नमस्ते! आप क्या ढूँढ रहे हैं? मैं आपकी कैसे मदद करूँ? कृपया अपनी समस्या बताएं।' 
+      : (lang === 'as' ? 'নমস্কাৰ! আপুনি কি বিচাৰিছে? মই আপোনাক কেনেকৈ সহায় কৰিব পাৰোঁ? আপোনাৰ লক্ষণ কওক।' : 'Hey there, What are you looking for? How may I help you?');
     this.addBotMessage(notice);
-    this.speak(notice);
+    this.speakSweetWelcome(notice);
   }
 
   startConsultationWorkflow(initialHospital) {
@@ -979,14 +1262,53 @@ class InteractiveDoctorBot {
 
     this.step = 1;
     const greetings = {
-      en: 'Namaste! I am Dr. Debabrata Roy, MBBS, MD. How can I assist you with your health today? Please select an issue above or tell me what symptoms you are experiencing.',
-      hi: 'नमस्ते! मैं डॉ. देवब्रत रॉय (MBBS, MD) बोल रहा हूँ। आज आपकी सेहत के संबंध में मैं क्या सहायता कर सकता हूँ? ऊपर दिए गए विकल्प चुनें या अपनी समस्या बताएं।',
-      as: 'নমস্কাৰ! মই ডাঃ দেৱব্ৰত ৰয় (MBBS, MD) কৈ আছোঁ। আপোনাৰ স্বাস্থ্যৰ বাবে মই কি সহায় কৰিব পাৰোঁ? ওপৰৰ বিকল্প বাছি লওক অথবা আপোনাৰ লক্ষণ কওক।'
+      en: `
+        <div style="font-size: 13.5px; font-weight: 800; color: #fff; margin-bottom: 4px;">
+          👋 Hey there, What are you looking for? How may I help you?
+        </div>
+        <div style="font-size: 11.5px; color: #a6c6b8; line-height: 1.45;">
+          I am Dr. Debabrata Roy (MBBS, MD). I can help you find verified hospitals, emergency beds, check symptoms, or schedule a direct telephone consultation.
+        </div>
+        <div class="welcome-quick-chips">
+          <button class="welcome-chip-btn" onclick="window.interactiveDoctorBot.handleWelcomeOption('hospital')">🏥 Find Best Hospital</button>
+          <button class="welcome-chip-btn" onclick="window.interactiveDoctorBot.handleWelcomeOption('doctor')">👨‍⚕️ Talk to Doctor</button>
+          <button class="welcome-chip-btn" onclick="window.interactiveDoctorBot.handleWelcomeOption('emergency')">🚨 24x7 Emergency</button>
+          <button class="welcome-chip-btn" onclick="window.interactiveDoctorBot.handleWelcomeOption('rx')">💊 Medicine & Prescriptions</button>
+        </div>
+      `,
+      hi: `
+        <div style="font-size: 13.5px; font-weight: 800; color: #fff; margin-bottom: 4px;">
+          👋 नमस्ते! आप क्या ढूँढ रहे हैं? मैं आपकी कैसे मदद करूँ?
+        </div>
+        <div style="font-size: 11.5px; color: #a6c6b8; line-height: 1.45;">
+          मैं डॉ. देवब्रत रॉय (MBBS, MD) बोल रहा हूँ। मैं अस्पताल ढूंढने, आपातकालीन देखभाल, या लक्षणों के विश्लेषण में आपकी सहायता कर सकता हूँ।
+        </div>
+        <div class="welcome-quick-chips">
+          <button class="welcome-chip-btn" onclick="window.interactiveDoctorBot.handleWelcomeOption('hospital')">🏥 अस्पताल खोजें</button>
+          <button class="welcome-chip-btn" onclick="window.interactiveDoctorBot.handleWelcomeOption('doctor')">👨‍⚕️ डॉक्टर से परामर्श</button>
+          <button class="welcome-chip-btn" onclick="window.interactiveDoctorBot.handleWelcomeOption('emergency')">🚨 आपातकालीन सेवा</button>
+          <button class="welcome-chip-btn" onclick="window.interactiveDoctorBot.handleWelcomeOption('rx')">💊 दवा व नुस्खा</button>
+        </div>
+      `,
+      as: `
+        <div style="font-size: 13.5px; font-weight: 800; color: #fff; margin-bottom: 4px;">
+          👋 নমস্কাৰ! আপুনি কি বিচাৰিছে? মই আপোনাক কেনেকৈ সহায় কৰিব পাৰোঁ?
+        </div>
+        <div style="font-size: 11.5px; color: #a6c6b8; line-height: 1.45;">
+          মই ডাঃ দেৱব্ৰত ৰয় (MBBS, MD)। মই আপোনাক চিকিৎসালয় বিচাৰিবলৈ, জৰুৰীকালীন সেৱা অথবা লক্ষণ পৰীক্ষা আৰু ঔষধৰ বাবে সহায় কৰিব পাৰোঁ।
+        </div>
+        <div class="welcome-quick-chips">
+          <button class="welcome-chip-btn" onclick="window.interactiveDoctorBot.handleWelcomeOption('hospital')">🏥 চিকিৎসালয় বিচাৰক</button>
+          <button class="welcome-chip-btn" onclick="window.interactiveDoctorBot.handleWelcomeOption('doctor')">👨‍⚕️ চিকিৎসকৰ সৈতে কথা</button>
+          <button class="welcome-chip-btn" onclick="window.interactiveDoctorBot.handleWelcomeOption('emergency')">🚨 জৰুৰীকালীন সেৱা</button>
+          <button class="welcome-chip-btn" onclick="window.interactiveDoctorBot.handleWelcomeOption('rx')">💊 ঔষধ আৰু নিদান</button>
+        </div>
+      `
     };
 
-    const g = greetings[this.currentLanguage];
-    this.addBotMessage(g);
-    this.speak(g);
+    const g = greetings[this.currentLanguage] || greetings.en;
+    this.addBotMessage(g, true);
+    this.speakSweetWelcome();
   }
 
   selectInviteTopic(topicKey) {

@@ -62,6 +62,10 @@ MedConnect India is a next-generation healthcare discovery platform delivering a
 Futuristic dark emerald aesthetic, glowing state boundaries, atmospheric particle field, and instant city switcher pills tray.
 ![3D India Map](screenshots/01_india_3d_glass_map.png)
 
+### 2. Proactive AI Doctor Sweet Voice Greeting & Interactive Welcome
+Proactive audio greeting ("Hey there, What are you looking for? How may I help you") in a warm, sweet tone with animated floating pill and one-click quick action chips.
+![Sweet Voice AI Welcome](screenshots/09_sweet_voice_welcome.png)
+
 ### 2. City Deep-Dive & Verified Facility Pinpointing (Guwahati, Assam)
 Zoom-in navigation displaying verified institutions with live emergency status, bed counts, and Google Maps routing.
 ![City Healthcare Exploration](screenshots/02_guwahati_city_focus.png)
