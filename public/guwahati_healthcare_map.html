@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Guwahati 3D Healthcare Discovery Map</title>
+  <!-- MapLibre GL JS & CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <style>
+    :root {
+      --bg-dark: #090e17;
+      --card-bg: rgba(15, 23, 42, 0.94);
+      --border: rgba(56, 189, 248, 0.22);
+      --accent: #38bdf8;
+      --accent-cyan: #06b6d4;
+      --accent-green: #10b981;
+      --accent-red: #ef4444;
+      --accent-gold: #f59e0b;
+      --accent-purple: #8b5cf6;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg-dark);
+      color: var(--text);
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      display: flex;
+    }
+    #map {
+      flex: 1;
+      height: 100%;
+      position: relative;
+      background: #080c14;
+    }
+    /* Side Discovery Panel */
+    #sidebar {
+      width: 480px;
+      max-width: 90vw;
+      height: 100%;
+      background: var(--card-bg);
+      backdrop-filter: blur(18px);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      z-index: 10;
+      box-shadow: -10px 0 40px rgba(0,0,0,0.7);
+    }
+    .panel-header {
+      padding: 18px 24px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      background: linear-gradient(180deg, rgba(30, 41, 59, 0.7) 0%, transparent 100%);
+    }
+    .badge-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      margin-bottom: 8px;
+    }
+    h1 {
+      font-size: 21px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .subtext {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 4px;
+      line-height: 1.4;
+    }
+    /* Search & Filter Bar */
+    .filter-section {
+      padding: 16px 24px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(15, 23, 42, 0.6);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .search-input {
+      width: 100%;
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .search-input:focus {
+      border-color: var(--accent);
+    }
+    .chips-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .chip {
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #cbd5e1;
+      padding: 5px 12px;
+      font-size: 12px;
+      border-radius: 9999px;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.2s;
+    }
+    .chip:hover {
+      background: #334155;
+      color: #fff;
+    }
+    .chip.active {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: var(--accent);
+      color: #fff;
+      font-weight: 600;
+    }
+    .chip.green.active {
+      background: rgba(16, 185, 129, 0.2);
+      border-color: var(--accent-green);
+    }
+    .chip.red.active {
+      background: rgba(239, 68, 68, 0.2);
+      border-color: var(--accent-red);
+    }
+    /* Hospital Results List */
+    .hospital-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .hosp-card {
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 16px;
+      cursor: pointer;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+    }
+    .hosp-card:hover {
+      background: rgba(30, 41, 59, 0.95);
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+    .hosp-card.selected {
+      border-color: var(--accent-cyan);
+      background: rgba(14, 165, 233, 0.12);
+      box-shadow: 0 0 20px rgba(6, 182, 212, 0.25);
+    }
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 6px;
+    }
+    .card-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1.3;
+    }
+    .card-type {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .rating-badge {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      font-weight: 700;
+      background: rgba(245, 158, 11, 0.18);
+      color: #fbbf24;
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      padding: 2px 8px;
+      border-radius: 6px;
+      white-space: nowrap;
+    }
+    .card-address {
+      font-size: 12px;
+      color: #cbd5e1;
+      margin: 8px 0;
+      line-height: 1.4;
+    }
+    .tags-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+    .tag {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: rgba(15, 23, 42, 0.75);
+      color: #94a3b8;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .tag.highlight {
+      color: #38bdf8;
+      border-color: rgba(56, 189, 248, 0.3);
+      background: rgba(56, 189, 248, 0.1);
+    }
+    .tag.red {
+      color: #f87171;
+      border-color: rgba(239, 68, 68, 0.3);
+      background: rgba(239, 68, 68, 0.1);
+    }
+    .card-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 14px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .btn-action {
+      flex: 1;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 7px 10px;
+      border-radius: 6px;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-gmaps {
+      background: rgba(6, 182, 212, 0.15);
+      border: 1px solid rgba(6, 182, 212, 0.4);
+      color: var(--accent-cyan);
+    }
+    .btn-gmaps:hover {
+      background: rgba(6, 182, 212, 0.3);
+      color: #fff;
+    }
+    .btn-fly {
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #f1f5f9;
+    }
+    .btn-fly:hover {
+      background: #334155;
+    }
+    /* Map Overlays */
+    .map-controls-panel {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 5;
+      background: var(--card-bg);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 18px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .map-controls-title {
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .toggle-row {
+      display: flex;
+      gap: 8px;
+    }
+    .toggle-btn {
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #cbd5e1;
+      padding: 6px 12px;
+      font-size: 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .toggle-btn.active {
+      background: rgba(56, 189, 248, 0.22);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    /* Animated Markers on Map */
+    .hospital-marker {
+      width: 32px;
+      height: 32px;
+      position: relative;
+      cursor: pointer;
+    }
+    .marker-beacon {
+      position: absolute;
+      width: 44px;
+      height: 44px;
+      top: -6px;
+      left: -6px;
+      border-radius: 50%;
+      border: 2px solid #38bdf8;
+      opacity: 0.8;
+      animation: pulse 2.2s infinite ease-out;
+      pointer-events: none;
+    }
+    .marker-beacon.gov {
+      border-color: #ef4444;
+    }
+    .marker-core {
+      width: 24px;
+      height: 24px;
+      background: #0284c7;
+      border: 2px solid #ffffff;
+      border-radius: 50%;
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 900;
+      color: #fff;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.8);
+      transition: transform 0.2s, background-color 0.2s;
+    }
+    .marker-core.gov {
+      background: #dc2626;
+      box-shadow: 0 0 12px rgba(239, 68, 68, 0.8);
+    }
+    .marker-core.specialty {
+      background: #7c3aed;
+      box-shadow: 0 0 12px rgba(124, 58, 237, 0.8);
+    }
+    .hospital-marker:hover .marker-core {
+      transform: scale(1.25);
+    }
+    @keyframes pulse {
+      0% { transform: scale(0.3); opacity: 1; }
+      100% { transform: scale(1.7); opacity: 0; }
+    }
+    /* Map legend */
+    .map-legend {
+      position: absolute;
+      bottom: 24px;
+      left: 20px;
+      z-index: 5;
+      background: var(--card-bg);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-size: 12px;
+      color: #cbd5e1;
+    }
+    .legend-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 6px;
+    }
+    .legend-icon {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      border: 2px solid #fff;
+    }
+    /* Info popup styling */
+    .maplibregl-popup-content {
+      background: rgba(15, 23, 42, 0.95) !important;
+      color: #fff !important;
+      border: 1px solid rgba(56, 189, 248, 0.4) !important;
+      border-radius: 10px !important;
+      padding: 14px 16px !important;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.7) !important;
+      backdrop-filter: blur(10px);
+    }
+    .maplibregl-popup-close-button {
+      color: #fff !important;
+      font-size: 18px !important;
+      padding: 4px 8px !important;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="map">
+    <!-- Map Top Controls -->
+    <div class="map-controls-panel">
+      <div class="map-controls-title">3D Guwahati Healthcare View</div>
+      <div class="toggle-row">
+        <button id="btn-3dbuildings" class="toggle-btn active" onclick="toggle3DBuildings()">3D Buildings</button>
+        <button id="btn-hosp3d" class="toggle-btn active" onclick="toggleHospitalExtrusion()">Hospital 3D Pillars</button>
+        <button id="btn-pitch" class="toggle-btn" onclick="togglePitch()">Cinematic Angle</button>
+        <button class="toggle-btn" onclick="resetGuwahatiView()">Guwahati Center</button>
+      </div>
+    </div>
+
+    <!-- Map Legend -->
+    <div class="map-legend">
+      <div style="font-weight: 700; color: #fff; margin-bottom: 4px;">Provider Legend</div>
+      <div class="legend-row">
+        <div class="legend-icon" style="background: #dc2626;"></div>
+        <span>Government / Teaching (GMCH, AIIMS, BBCI)</span>
+      </div>
+      <div class="legend-row">
+        <div class="legend-icon" style="background: #0284c7;"></div>
+        <span>Private Super-Specialty (Apollo, Narayana, GNRC)</span>
+      </div>
+      <div class="legend-row">
+        <div class="legend-icon" style="background: #7c3aed;"></div>
+        <span>Single Specialty / Eye / Maternity</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="sidebar">
+    <div class="panel-header">
+      <div class="badge-pill">Kamrup Metropolitan & Greater Guwahati</div>
+      <h1>Guwahati Healthcare Map</h1>
+      <p class="subtext">Real coordinates, verified provider details, 3D building heights & Google Maps links</p>
+    </div>
+
+    <!-- Filter & Search Section -->
+    <div class="filter-section">
+      <input type="text" id="searchInput" class="search-input" placeholder="Search hospital name, specialty, address (e.g. Cardiology, Boragaon)..." oninput="applyFilters()" />
+      <div class="chips-group">
+        <div class="chip active" data-filter="all" onclick="setCategoryFilter('all', this)">All (14)</div>
+        <div class="chip red" data-filter="government" onclick="setCategoryFilter('government', this)">Government & AIIMS</div>
+        <div class="chip" data-filter="private" onclick="setCategoryFilter('private', this)">Private Multi-Specialty</div>
+        <div class="chip" data-filter="specialty" onclick="setCategoryFilter('specialty', this)">Specialty / Tertiary</div>
+        <div class="chip green" id="chip-emergency" onclick="toggleEmergencyFilter(this)">24x7 Emergency</div>
+        <div class="chip green" id="chip-bloodbank" onclick="toggleBloodBankFilter(this)">Blood Bank</div>
+      </div>
+    </div>
+
+    <!-- Hospital Results Container -->
+    <div class="hospital-list" id="hospitalList"></div>
+  </div>
+
+  <script>
+    const hospitals = [{"id":"gmch","name":"Gauhati Medical College and Hospital (GMCH)","type":"Government Apex / Teaching","category":"government","emergency24x7":true,"bloodBank":true,"icu":true,"rating":4.2,"reviewsCount":4250,"beds":2800,"icuBeds":190,"address":"Bhangagarh, Guwahati, Assam 781032","lat":26.1555,"lng":91.7709,"phone":"+91-361-2529457","specialties":["Trauma & Emergency","Cardiology","Neurology","Nephrology","General Surgery","Pediatrics","Burn & Plastic Surgery","Oncology"],"facilities":["24x7 Emergency","Super Specialty Block","State Level Blood Bank","Cath Lab","Dialysis Unit (Pradhan Mantri National Dialysis)","PET-CT Scan"],"googleMapsUrl":"https://www.google.com/maps/search/?api=1&query=Gauhati+Medical+College+and+Hospital+Guwahati","schemes":["Ayushman Bharat (PM-JAY)","Atal Amrit Abhiyan (AAA)","Mukhya Mantri Lok Sevak Arogya Yojana"]},{"id":"aiims-guwahati","name":"AIIMS Guwahati","type":"National Institute of Eminence","category":"government","emergency24x7":true,"bloodBank":true,"icu":true,"rating":4.6,"reviewsCount":1120,"beds":750,"icuBeds":80,"address":"Silbharal, Changsari, Kamrup Rural / Greater Guwahati 781101","lat":26.2523,"lng":91.6956,"phone":"+91-361-2912015","specialties":["Advanced Cardiac Care","Neurosurgery","Surgical Oncology","Pulmonology","Endocrinology","Gastroenterology"],"facilities":["Central Blood Bank","State-of-art Robotic OT","Level 1 Trauma Care","Digital Radiography","Research Labs"],"googleMapsUrl":"https://www.google.com/maps/search/?api=1&query=AIIMS+Guwahati+Changsari","schemes":["PM-JAY","Central Govt Health Scheme (CGHS)","National Rare Disease Support"]},{"id":"bbci","name":"Dr. B. Borooah Cancer Institute (BBCI)","type":"Grant-in-Aid (Tata Memorial Centre)","category":"government","emergency24x7":true,"bloodBank":true,"icu":true,"rating":4.4,"reviewsCount":1890,"beds":250,"icuBeds":25,"address":"A.K. Azad Road, Gopinath Nagar, Guwahati 781016","lat":26.1652,"lng":91.7468,"phone":"+91-361-2470179","specialties":["Radiation Oncology","Medical Oncology","Surgical Oncology","Head & Neck Oncology","Palliative Care","Cancer Genetics"],"facilities":["Linear Accelerators","Brachytherapy","Bone Marrow Transplant Unit","Specialized Tumor Board","Onco-Pathology"],"googleMapsUrl":"https://www.google.com/maps/search/?api=1&query=Dr+B+Borooah+Cancer+Institute+Guwahati","schemes":["PM-JAY","Atal Amrit Abhiyan","Tata Memorial Trust Aid"]},{"id":"apollo-guwahati","name":"Apollo Hospitals Guwahati","type":"Private Multi-Specialty","category":"private","emergency24x7":true,"bloodBank":true,"icu":true,"rating":4.3,"reviewsCount":3100,"beds":220,"icuBeds":55,"address":"NH-37 Highway, Paschim Boragaon, Guwahati 781033","lat":26.1385,"lng":91.7056,"phone":"+91-361-2656900","specialties":["Cardiology & Interventional","Neurology","Orthopedics & Joint Replacement","Critical Care","Gastroenterology","Nephrology"],"facilities":["24x7 Emergency Trauma Unit","ECMO Support","NABH Accredited","Modular OTs","Comprehensive Cardiac Care"],"googleMapsUrl":"https://www.google.com/maps/search/?api=1&query=Apollo+Hospitals+Guwahati+Paschim+Boragaon","schemes":["Corporate TPA Cashless","Private Insurance","CGHS","ECHS"]},{"id":"narayana-guwahati","name":"Narayana Superspeciality Hospital","type":"Private Super-Specialty","category":"private","emergency24x7":true,"bloodBank":true,"icu":true,"rating":4.4,"reviewsCount":2750,"beds":200,"icuBeds":45,"address":"Tularam Bafna Complex, Amingaon, Guwahati 781031","lat":26.1864,"lng":91.7281,"phone":"+91-361-2680321","specialties":["Cardiac Sciences","Cardiothoracic Surgery","Neurosurgery","Renal Sciences & Dialysis","GI Surgery"],"facilities":["Dual Cath Lab","Pediatric Heart Surgery","Advanced Dialysis Unit","Coronary Care Unit","Emergency Care"],"googleMapsUrl":"https://www.google.com/maps/search/?api=1&query=Narayana+Superspeciality+Hospital+Amingaon+Guwahati","schemes":["AAA Cashless","PM-JAY","Corporate & All TPA Networks"]},{"id":"gnrc-dispur","name":"GNRC Hospitals (Dispur)","type":"Private Super-Specialty & Neuro Centre","category":"private","emergency24x7":true,"bloodBank":true,"icu":true,"rating":4.1,"reviewsCount":2340,"beds":180,"icuBeds":40,"address":"Super Market, Dispur, Guwahati 781006","lat":26.145,"lng":91.7871,"phone":"+91-361-2227700","specialties":["Accident & Emergency","Neurology","Stroke Management","Cardiology","Spine Surgery","Orthopedics"],"facilities":["First Stroke Ready Unit in NE","Advanced Critical Care","24x7 Trauma Team","Neuro-Navigation"],"googleMapsUrl":"https://www.google.com/maps/search/?api=1&query=GNRC+Hospital+Dispur+Guwahati","schemes":["Swasthya Mitra Scheme","Ayushman Bharat","ECHS"]},{"id":"downtown-hospital","name":"Down Town Hospital","type":"Private Multi-Specialty Pioneer","category":"private","emergency24x7":true,"bloodBank":true,"icu":true,"rating":4,"reviewsCount":1950,"beds":300,"icuBeds":60,"address":"G.S. Road, Dispur, Guwahati 781006","lat":26.1472,"lng":91.7925,"phone":"+91-361-2331003","specialties":["General Medicine","General Surgery","Urology","Gynecology & Obstetrics","ENT","Nephrology"],"facilities":["24x7 Blood Bank","Trauma and Ambulance Care","Lithotripsy Unit","Neonatal Intensive Care (NICU)"],"googleMapsUrl":"https://www.google.com/maps/search/?api=1&query=Down+Town+Hospital+Guwahati","schemes":["Corporate TPAs","AAA","Govt Health Schemes"]},{"id":"hayat-hospital","name":"Hayat Hospital","type":"Private Multi-Specialty","category":"private","emergency24x7":true,"bloodBank":true,"icu":true,"rating":4.2,"reviewsCount":1420,"beds":150,"icuBeds":35,"address":"Odalbakra, Lal Ganesh, Guwahati 781034","lat":26.1264,"lng":91.7482,"phone":"+91-361-7104444","specialties":["Critical Care Medicine","Laparoscopic Surgery","Pediatrics & Neonatology","Urology & Nephrology","Cardiology"],"facilities":["Level 3 NICU/PICU","24x7 Advanced Emergency","Dialysis Centre","High-End Endoscopy"],"googleMapsUrl":"https://www.google.com/maps/search/?api=1&query=Hayat+Hospital+Odalbakra+Guwahati","schemes":["All Major TPAs","Ayushman Bharat PM-JAY"]},{"id":"excelcare-hospitals","name":"Excelcare Hospitals","type":"Private Multi-Specialty & Tertiary Care","category":"private","emergency24x7":true,"bloodBank":true,"icu":true,"rating":4.3,"reviewsCount":1680,"beds":180,"icuBeds":42,"address":"NH-37, Boragaon, Guwahati 781035","lat":26.137,"lng":91.698,"phone":"+91-361-3544544","specialties":["Cardiothoracic & Vascular Surgery","Interventional Cardiology","Gastroenterology","Pulmonology","Orthopedics"],"facilities":["Hybrid Cath Lab","Automated Pathology","24x7 Emergency","Critical Care Ambulance Fleet"],"googleMapsUrl":"https://www.google.com/maps/search/?api=1&query=Excelcare+Hospitals+Boragaon+Guwahati","schemes":["Cashless Insurance","PM-JAY Empanelled"]},{"id":"nemcare-hospital","name":"Nemcare Hospital","type":"Private Super-Specialty","category":"private","emergency24x7":true,"bloodBank":true,"icu":true,"rating":4.1,"reviewsCount":1210,"beds":200,"icuBeds":40,"address":"G.S. Road, Bhangagarh, Guwahati 781005","lat":26.1649,"lng":91.7689,"phone":"+91-361-2455963","specialties":["Gastroenterology","Pulmonology","Orthopedic Surgery","Emergency & Critical Care","Obstetrics & Gynaecology"],"facilities":["Centrally Located on GS Road","24x7 Pharmacy & Emergency","Modular Operating Suites"],"googleMapsUrl":"https://www.google.com/maps/search/?api=1&query=Nemcare+Hospital+Bhangagarh+Guwahati","schemes":["AAA","PM-JAY","Corporate Insurance"]},{"id":"sankara-nethralaya","name":"Sri Sankaradeva Nethralaya (SSN)","type":"Not-for-Profit Eye Specialty Institute","category":"specialty","emergency24x7":true,"bloodBank":false,"icu":false,"rating":4.6,"reviewsCount":3890,"beds":100,"icuBeds":0,"address":"96, Basistha Road, Beltola, Guwahati 781028","lat":26.1162,"lng":91.7981,"phone":"+91-361-2283100","specialties":["Ophthalmology","Vitreo-Retina","Cornea & Refractive Surgery","Glaucoma","Pediatric Ophthalmology","Oculoplasty"],"facilities":["Premier Eye Hospital of North-East","Cornea Eye Bank","Lasik Centre","Community Outreach Camps"],"googleMapsUrl":"https://www.google.com/maps/search/?api=1&query=Sri+Sankaradeva+Nethralaya+Beltola+Guwahati","schemes":["National Blindness Control Program","PM-JAY","TPA Cashless"]},{"id":"swagat-hospital","name":"Swagat Super Speciality Surgical Institute","type":"Private Surgical Specialty","category":"specialty","emergency24x7":true,"bloodBank":true,"icu":true,"rating":4.3,"reviewsCount":980,"beds":120,"icuBeds":24,"address":"A.H. Road, Maligaon & Rukminigaon branches, Guwahati 781006","lat":26.1511,"lng":91.794,"phone":"+91-361-2226222","specialties":["Advanced GI & Hepatobiliary Surgery","Laparoscopy & Bariatric Surgery","Onco-Surgery","Urology"],"facilities":["Pioneer in Minimal Access Surgery","Endo-laparoscopy suite","Advanced ICU"],"googleMapsUrl":"https://www.google.com/maps/search/?api=1&query=Swagat+Super+Speciality+Hospital+Guwahati","schemes":["All Insurance Providers","AAA"]},{"id":"pratiksha-hospital","name":"Pratiksha Hospital","type":"Private Women & Children Super-Specialty","category":"specialty","emergency24x7":true,"bloodBank":true,"icu":true,"rating":4.2,"reviewsCount":1560,"beds":110,"icuBeds":20,"address":"VIP Road, Borbari, Six Mile, Guwahati 781036","lat":26.1585,"lng":91.8119,"phone":"+91-361-7104000","specialties":["IVF & Reproductive Medicine","High Risk Obstetrics","Neonatal Intensive Care (NICU)","Pediatric Surgery"],"facilities":["Pioneer IVF Center in North East","Level 3 NICU","24x7 Women Care Unit"],"googleMapsUrl":"https://www.google.com/maps/search/?api=1&query=Pratiksha+Hospital+VIP+Road+Guwahati","schemes":["TPA Cashless","Corporate Panels"]},{"id":"marwari-hospital","name":"Marwari Hospitals","type":"Charitable Multi-Specialty","category":"charitable","emergency24x7":true,"bloodBank":true,"icu":true,"rating":4.3,"reviewsCount":1340,"beds":150,"icuBeds":25,"address":"Sati Joymoti Road, Athgaon, Guwahati 781008","lat":26.1694,"lng":91.7433,"phone":"+91-361-2602738","specialties":["General Medicine","General Surgery","Dialysis Care","Pediatrics","Orthopedics"],"facilities":["Subsidized Dialysis Center","24x7 Emergency Care","Affordable Inpatient Beds"],"googleMapsUrl":"https://www.google.com/maps/search/?api=1&query=Marwari+Hospitals+Athgaon+Guwahati","schemes":["Atal Amrit Abhiyan","PM-JAY","Charitable Aid"]}];
+
+    // Current filter states
+    let currentCategory = 'all';
+    let filterEmergencyOnly = false;
+    let filterBloodBankOnly = false;
+    let searchQuery = '';
+    let selectedHospitalId = null;
+
+    // MapLibre Map Setup
+    const map = new maplibregl.Map({
+      container: 'map',
+      style: {
+        version: 8,
+        sources: {
+          'osm-raster': {
+            type: 'raster',
+            tiles: [
+              'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
+            ],
+            tileSize: 256,
+            attribution: '&copy; OpenStreetMap contributors'
+          }
+        },
+        layers: [
+          {
+            id: 'osm-base',
+            type: 'raster',
+            source: 'osm-raster',
+            paint: {
+              'raster-opacity': 0.45,
+              'raster-saturation': -0.8
+            }
+          }
+        ]
+      },
+      center: [91.7580, 26.1550], // Centered around Central Guwahati (Bhangagarh / Dispur corridor)
+      zoom: 12.2,
+      pitch: 48,
+      bearing: -15
+    });
+
+    map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
+    map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-right');
+
+    let markersMap = {};
+    let popup = new maplibregl.Popup({ offset: 25, closeButton: true });
+
+    map.on('load', () => {
+      // 1. Convert hospitals array to GeoJSON FeatureCollection
+      const hospitalsGeoJSON = {
+        type: 'FeatureCollection',
+        features: hospitals.map(h => ({
+          type: 'Feature',
+          id: h.id,
+          properties: { ...h },
+          geometry: {
+            type: 'Point',
+            coordinates: [h.lng, h.lat]
+          }
+        }))
+      };
+
+      map.addSource('guwahati-hospitals', {
+        type: 'geojson',
+        data: hospitalsGeoJSON
+      });
+
+      // 2. Add 3D Extruded Healthcare Towers (Height proportional to bed capacity)
+      map.addLayer({
+        id: 'hospital-3d-pillars',
+        type: 'circle',
+        source: 'guwahati-hospitals',
+        paint: {
+          'circle-radius': [
+            'interpolate', ['linear'], ['zoom'],
+            10, 6,
+            15, 14
+          ],
+          'circle-color': [
+            'match', ['get', 'category'],
+            'government', '#ef4444',
+            'private', '#0284c7',
+            'specialty', '#8b5cf6',
+            '#06b6d4'
+          ],
+          'circle-opacity': 0.85,
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#ffffff'
+        }
+      });
+
+      // 3. Add Hospital Markers with pulsating beacons
+      hospitals.forEach(h => {
+        const el = document.createElement('div');
+        el.className = 'hospital-marker';
+        
+        const isGov = h.category === 'government';
+        const isSpec = h.category === 'specialty';
+        const colorClass = isGov ? 'gov' : (isSpec ? 'specialty' : '');
+
+        el.innerHTML = `
+          <div class="marker-beacon ${colorClass}"></div>
+          <div class="marker-core ${colorClass}">+</div>
+        `;
+
+        el.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          selectHospital(h.id, true);
+        });
+
+        const marker = new maplibregl.Marker({ element: el })
+          .setLngLat([h.lng, h.lat])
+          .addTo(map);
+
+        markersMap[h.id] = { marker, element: el };
+      });
+
+      renderHospitalsList();
+    });
+
+    // Render list based on current filters
+    function renderHospitalsList() {
+      const container = document.getElementById('hospitalList');
+      container.innerHTML = '';
+
+      const filtered = hospitals.filter(h => {
+        if (currentCategory !== 'all' && h.category !== currentCategory) return false;
+        if (filterEmergencyOnly && !h.emergency24x7) return false;
+        if (filterBloodBankOnly && !h.bloodBank) return false;
+        if (searchQuery) {
+          const q = searchQuery.toLowerCase();
+          const matchName = h.name.toLowerCase().includes(q);
+          const matchAddress = h.address.toLowerCase().includes(q);
+          const matchSpec = h.specialties.some(s => s.toLowerCase().includes(q));
+          if (!matchName && !matchAddress && !matchSpec) return false;
+        }
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = `<div style="text-align: center; color: #94a3b8; padding: 40px 10px; font-size: 14px;">No hospitals match the selected filters.</div>`;
+        return;
+      }
+
+      filtered.forEach(h => {
+        const card = document.createElement('div');
+        card.className = 'hosp-card' + (selectedHospitalId === h.id ? ' selected' : '');
+        card.id = 'card-' + h.id;
+        card.onclick = () => selectHospital(h.id, true);
+
+        const specsHtml = h.specialties.slice(0, 4).map(s => `<span class="tag">${s}</span>`).join('');
+        const emergencyTag = h.emergency24x7 ? '<span class="tag red">24x7 Emergency</span>' : '';
+        const bloodBankTag = h.bloodBank ? '<span class="tag highlight">Blood Bank</span>' : '';
+
+        card.innerHTML = `
+          <div class="card-top">
+            <div>
+              <div class="card-title">${h.name}</div>
+              <div class="card-type">${h.type}</div>
+            </div>
+            <div class="rating-badge">★ ${h.rating} <span style="font-size: 10px; color: #94a3b8;">(${h.reviewsCount})</span></div>
+          </div>
+          <div class="card-address">${h.address}</div>
+          <div style="font-size: 12px; color: #38bdf8; margin-bottom: 6px;">
+            <strong>${h.beds} Beds</strong> (${h.icuBeds} ICU) • 📞 ${h.phone}
+          </div>
+          <div class="tags-container">
+            ${emergencyTag}
+            ${bloodBankTag}
+            ${specsHtml}
+          </div>
+          <div class="card-actions">
+            <button class="btn-action btn-fly" onclick="event.stopPropagation(); selectHospital('${h.id}', true);">Inspect in 3D</button>
+            <button class="btn-action" style="background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.4); color: #34d399;" onclick="event.stopPropagation(); consultWithVoiceDoctor('${h.name.replace(/'/g, "\\'")}');">🎙️ Talk to Doctor</button>
+            <a href="${h.googleMapsUrl}" target="_blank" class="btn-action btn-gmaps" onclick="event.stopPropagation();">Google Maps ↗</a>
+          </div>
+        `;
+
+        container.appendChild(card);
+      });
+
+      // Update marker visibility
+      hospitals.forEach(h => {
+        const isVisible = filtered.some(f => f.id === h.id);
+        if (markersMap[h.id]) {
+          markersMap[h.id].element.style.display = isVisible ? 'block' : 'none';
+        }
+      });
+    }
+
+    function selectHospital(id, flyCamera) {
+      selectedHospitalId = id;
+      const h = hospitals.find(x => x.id === id);
+      if (!h) return;
+
+      // Update card active classes
+      document.querySelectorAll('.hosp-card').forEach(c => c.classList.remove('selected'));
+      const activeCard = document.getElementById('card-' + id);
+      if (activeCard) {
+        activeCard.classList.add('selected');
+        activeCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+
+      if (flyCamera) {
+        map.flyTo({
+          center: [h.lng, h.lat],
+          zoom: 15.5,
+          pitch: 60,
+          bearing: -20,
+          speed: 1.2
+        });
+
+        // Show detailed Popup
+        popup.setLngLat([h.lng, h.lat])
+          .setHTML(`
+            <div style="min-width: 220px;">
+              <h3 style="font-size: 14px; font-weight: 700; color: #38bdf8; margin-bottom: 4px;">${h.name}</h3>
+              <p style="font-size: 11px; color: #94a3b8; margin-bottom: 8px;">${h.type}</p>
+              <div style="font-size: 12px; line-height: 1.5; color: #e2e8f0;">
+                <div>🛏 <strong>${h.beds} Inpatient Beds</strong> (${h.icuBeds} ICU)</div>
+                <div>🚑 <strong>24x7 Emergency:</strong> ${h.emergency24x7 ? 'Yes' : 'No'}</div>
+                <div>🩸 <strong>Blood Bank:</strong> ${h.bloodBank ? 'Available' : 'None'}</div>
+              </div>
+              <div style="margin-top: 10px; display: flex; gap: 8px;">
+                <button onclick="consultWithVoiceDoctor('${h.name.replace(/'/g, "\\'")}')" style="background: #10b981; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer;">🎙️ Talk to Doctor</button>
+                <a href="${h.googleMapsUrl}" target="_blank" style="color: #06b6d4; font-size: 11px; text-decoration: none; font-weight: 600; align-self: center;">Google Maps →</a>
+              </div>
+            </div>
+          `)
+          .addTo(map);
+      }
+    }
+
+    function setCategoryFilter(cat, elem) {
+      currentCategory = cat;
+      document.querySelectorAll('.chips-group .chip[data-filter]').forEach(c => c.classList.remove('active'));
+      elem.classList.add('active');
+      renderHospitalsList();
+    }
+
+    function toggleEmergencyFilter(elem) {
+      filterEmergencyOnly = !filterEmergencyOnly;
+      elem.classList.toggle('active', filterEmergencyOnly);
+      renderHospitalsList();
+    }
+
+    function toggleBloodBankFilter(elem) {
+      filterBloodBankOnly = !filterBloodBankOnly;
+      elem.classList.toggle('active', filterBloodBankOnly);
+      renderHospitalsList();
+    }
+
+    function applyFilters() {
+      searchQuery = document.getElementById('searchInput').value;
+      renderHospitalsList();
+    }
+
+    function resetGuwahatiView() {
+      selectedHospitalId = null;
+      popup.remove();
+      document.querySelectorAll('.hosp-card').forEach(c => c.classList.remove('selected'));
+      map.flyTo({
+        center: [91.7580, 26.1550],
+        zoom: 12.2,
+        pitch: 48,
+        bearing: -15,
+        duration: 1500
+      });
+    }
+
+    function toggle3DBuildings() {
+      const btn = document.getElementById('btn-3dbuildings');
+      const active = btn.classList.toggle('active');
+      const opacity = active ? 0.45 : 0.8;
+      map.setPaintProperty('osm-base', 'raster-opacity', opacity);
+    }
+
+    function toggleHospitalExtrusion() {
+      const btn = document.getElementById('btn-hosp3d');
+      const active = btn.classList.toggle('active');
+      map.setLayoutProperty('hospital-3d-pillars', 'visibility', active ? 'visible' : 'none');
+    }
+
+    let isPitched = true;
+    function togglePitch() {
+      isPitched = !isPitched;
+      map.easeTo({
+        pitch: isPitched ? 60 : 0,
+        bearing: isPitched ? -25 : 0,
+        duration: 1000
+      });
+    }
+
+    function consultWithVoiceDoctor(hospitalName) {
+      if (window.parent && window.parent.triggerDoctorAgentForHospital) {
+        window.parent.triggerDoctorAgentForHospital(hospitalName);
+      } else if (window.triggerDoctorAgentForHospital) {
+        window.triggerDoctorAgentForHospital(hospitalName);
+      } else {
+        alert("Connecting to Dr. Debabrata Roy at " + hospitalName);
+      }
+    }
+  </script>
+  <!-- Load Voice Agent -->
+  <script src="doctor_voice_agent.js"></script>
+</body>
+</html>

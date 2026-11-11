@@ -1,0 +1,1445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HealthConnect India | 3D Glass Healthcare Map & Live Discovery Engine</title>
+
+  <!-- MapLibre GL CSS & JS (Latest) -->
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+
+  <!-- Three.js for Emerald Atmospheric Particles -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <style>
+    :root {
+      --bg-dark: #061c18;
+      --bg-surface: #0b2922;
+      --emerald: #20b982;
+      --mint: #8ce8c2;
+      --turquoise: #55dccb;
+      --white: #f4fff9;
+      --muted: #a6c6b8;
+      --glass-panel: rgba(11, 41, 34, 0.88);
+      --glass-border: rgba(85, 220, 203, 0.32);
+      --glass-hover: rgba(22, 66, 55, 0.95);
+      --shadow: 0 16px 45px rgba(0, 0, 0, 0.65);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg-dark);
+      color: var(--white);
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* TOP HEADER */
+    header {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 60px;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      background: linear-gradient(180deg, rgba(6, 28, 24, 0.96) 0%, rgba(6, 28, 24, 0.5) 75%, transparent 100%);
+    }
+    .brand-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+    }
+    .brand-logo-gem {
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--emerald), var(--turquoise));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 18px rgba(85, 220, 203, 0.5);
+      color: #061c18;
+      font-size: 22px;
+      font-weight: 900;
+    }
+    .brand-title {
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--white);
+    }
+    .brand-title span { color: var(--mint); }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .nav-link {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+    .nav-link:hover, .nav-link.active { color: var(--mint); }
+    .nav-btn {
+      background: rgba(49, 190, 133, 0.18);
+      border: 1px solid var(--glass-border);
+      color: var(--white);
+      padding: 7px 16px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .nav-btn:hover {
+      background: rgba(49, 190, 133, 0.35);
+      border-color: var(--mint);
+    }
+
+    /* FULLSCREEN MAP STAGE */
+    #map-viewport {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+    #map {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      background: #061c18;
+    }
+    #particles-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    /* CENTER SEARCH HERO OVERLAY */
+    .search-hero-overlay {
+      position: absolute;
+      top: 72px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 90%;
+      max-width: 960px;
+      z-index: 500;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      pointer-events: none;
+    }
+    .search-hero-overlay > * { pointer-events: auto; }
+
+    .title-banner {
+      text-align: center;
+      margin-bottom: 12px;
+      text-shadow: 0 4px 20px rgba(0,0,0,0.8);
+    }
+    .badge-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(32, 185, 130, 0.15);
+      border: 1px solid rgba(85, 220, 203, 0.35);
+      padding: 3px 12px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--mint);
+      margin-bottom: 6px;
+      backdrop-filter: blur(8px);
+    }
+    .badge-pill span {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--mint);
+      box-shadow: 0 0 8px var(--mint);
+      display: inline-block;
+    }
+    .main-heading {
+      font-size: 30px;
+      font-weight: 900;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      color: #ffffff;
+    }
+    .main-heading span {
+      background: linear-gradient(135deg, var(--mint), var(--turquoise));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .sub-heading {
+      font-size: 12.5px;
+      color: var(--muted);
+      margin-top: 3px;
+    }
+
+    /* SEARCH BAR WRAPPER */
+    .search-bar-wrap {
+      width: 100%;
+      position: relative;
+    }
+    .glass-search-box {
+      width: 100%;
+      background: rgba(11, 41, 34, 0.85);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--glass-border);
+      border-radius: 9999px;
+      padding: 8px 14px 8px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55), 0 0 20px rgba(32, 185, 130, 0.2);
+      transition: all 0.25s;
+    }
+    .glass-search-box:focus-within {
+      border-color: var(--mint);
+      box-shadow: 0 20px 48px rgba(0, 0, 0, 0.7), 0 0 30px rgba(85, 220, 203, 0.35);
+      background: rgba(11, 41, 34, 0.95);
+    }
+    .search-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--white);
+      font-size: 14.5px;
+      font-weight: 500;
+    }
+    .search-input::placeholder {
+      color: #64748b;
+      font-weight: 400;
+    }
+    .search-action-btn {
+      background: linear-gradient(135deg, var(--emerald), var(--turquoise));
+      border: none;
+      color: #061c18;
+      padding: 8px 18px;
+      border-radius: 9999px;
+      font-size: 12.5px;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 0 15px rgba(85, 220, 203, 0.4);
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .search-action-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 0 24px rgba(85, 220, 203, 0.7);
+    }
+
+    /* CITY PILLS TRAY */
+    .city-pills-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      overflow-x: auto;
+      max-width: 100%;
+      padding-bottom: 2px;
+      scrollbar-width: none;
+    }
+    .city-pills-bar::-webkit-scrollbar { display: none; }
+    .city-pill-btn {
+      background: rgba(11, 41, 34, 0.75);
+      border: 1px solid rgba(85, 220, 203, 0.28);
+      color: var(--white);
+      padding: 5px 13px;
+      border-radius: 9999px;
+      font-size: 11.5px;
+      font-weight: 700;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      white-space: nowrap;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .city-pill-btn:hover {
+      background: rgba(32, 185, 130, 0.28);
+      border-color: var(--mint);
+      transform: translateY(-1px);
+    }
+    .city-pill-btn.active {
+      background: linear-gradient(135deg, rgba(32, 185, 130, 0.4), rgba(85, 220, 203, 0.5));
+      border-color: var(--mint);
+      box-shadow: 0 0 14px rgba(85, 220, 203, 0.45);
+      color: #ffffff;
+    }
+
+    /* AUTOCOMPLETE DROPDOWN */
+    .autocomplete-menu {
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      width: 100%;
+      background: rgba(11, 41, 34, 0.96);
+      backdrop-filter: blur(25px);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.75);
+      overflow: hidden;
+      max-height: 400px;
+      overflow-y: auto;
+      display: none;
+      z-index: 1000;
+    }
+    .autocomplete-menu.active { display: block; }
+    .auto-group-title {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--mint);
+      padding: 10px 18px 4px;
+      font-weight: 800;
+    }
+    .auto-item {
+      padding: 10px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      border-bottom: 1px solid rgba(85, 220, 203, 0.08);
+      transition: background 0.15s;
+    }
+    .auto-item:hover {
+      background: rgba(32, 185, 130, 0.18);
+    }
+    .auto-item .item-main {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .auto-item .item-sub {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .auto-item .item-badge {
+      font-size: 11px;
+      background: rgba(49, 190, 133, 0.2);
+      border: 1px solid rgba(85, 220, 203, 0.3);
+      padding: 3px 8px;
+      border-radius: 6px;
+      color: var(--mint);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    /* 14 CATEGORY FILTER CHIPS TRAY */
+    .category-chips-dock {
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      overflow-x: auto;
+      max-width: 100%;
+      padding-bottom: 4px;
+      scrollbar-width: none;
+    }
+    .category-chips-dock::-webkit-scrollbar { display: none; }
+    .category-pill {
+      background: rgba(11, 41, 34, 0.72);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(85, 220, 203, 0.22);
+      padding: 5px 11px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      white-space: nowrap;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .category-pill:hover {
+      background: rgba(32, 185, 130, 0.22);
+      border-color: var(--mint);
+      color: #fff;
+      transform: translateY(-1px);
+    }
+    .category-pill.active {
+      background: rgba(32, 185, 130, 0.35);
+      border-color: var(--turquoise);
+      color: #ffffff;
+      box-shadow: 0 0 14px rgba(85, 220, 203, 0.35);
+    }
+
+    /* RIGHT EXPLORATION DRAWER */
+    #sidebar-results {
+      position: absolute;
+      top: 72px;
+      right: 20px;
+      width: 380px;
+      max-height: calc(100vh - 145px);
+      background: rgba(11, 41, 34, 0.94);
+      backdrop-filter: blur(25px);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      z-index: 600;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(420px);
+      transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    #sidebar-results.active {
+      transform: translateX(0);
+    }
+    .results-head {
+      padding: 14px 18px;
+      border-bottom: 1px solid rgba(85, 220, 203, 0.15);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .results-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .hospital-card {
+      background: rgba(6, 28, 24, 0.7);
+      border: 1px solid rgba(85, 220, 203, 0.22);
+      border-radius: 14px;
+      padding: 12px 14px;
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+    .hospital-card:hover {
+      background: rgba(22, 66, 55, 0.85);
+      border-color: var(--mint);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+    .hosp-title {
+      font-size: 13.5px;
+      font-weight: 800;
+      color: #fff;
+    }
+    .hosp-type {
+      font-size: 10.5px;
+      color: var(--mint);
+      margin-top: 2px;
+      font-weight: 600;
+    }
+    .hosp-addr {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 3px;
+    }
+
+    /* BOTTOM METRICS TELEMETRY BAR */
+    .bottom-status-bar {
+      position: absolute;
+      bottom: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 90%;
+      max-width: 960px;
+      background: rgba(11, 41, 34, 0.85);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--glass-border);
+      border-radius: 9999px;
+      padding: 8px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 500;
+      box-shadow: var(--shadow);
+    }
+    .metrics-row {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+    }
+    .metric-item {
+      display: flex;
+      flex-direction: column;
+    }
+    .metric-value {
+      font-size: 14.5px;
+      font-weight: 900;
+      color: var(--mint);
+    }
+    .metric-label {
+      font-size: 9.5px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .reset-btn {
+      background: rgba(49, 190, 133, 0.18);
+      border: 1px solid var(--glass-border);
+      color: var(--white);
+      padding: 6px 14px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .reset-btn:hover {
+      background: rgba(49, 190, 133, 0.35);
+      border-color: var(--mint);
+    }
+
+    /* 3D FLOATING CITY MARKERS */
+    .city-marker-node {
+      width: 32px;
+      height: 32px;
+      position: relative;
+      cursor: pointer;
+    }
+    .marker-ring-pulse {
+      position: absolute;
+      width: 44px;
+      height: 44px;
+      top: -6px;
+      left: -6px;
+      border-radius: 50%;
+      border: 2px solid var(--turquoise);
+      opacity: 0.8;
+      animation: pulseRings 2.4s infinite ease-out;
+      pointer-events: none;
+    }
+    .marker-glass-bubble {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #8ce8c2, #20b982 70%, #061c18 100%);
+      border: 2px solid #ffffff;
+      box-shadow: 0 0 16px rgba(85, 220, 203, 0.9);
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      transition: transform 0.25s, box-shadow 0.25s;
+    }
+    .city-marker-node:hover .marker-glass-bubble {
+      transform: scale(1.35);
+      box-shadow: 0 0 25px rgba(140, 232, 194, 1);
+    }
+    @keyframes pulseRings {
+      0% { transform: scale(0.3); opacity: 1; }
+      100% { transform: scale(1.6); opacity: 0; }
+    }
+
+    /* INDIVIDUAL FACILITY MAP MARKERS */
+    .facility-marker-node {
+      width: 34px;
+      height: 34px;
+      position: relative;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .facility-marker-node:hover {
+      transform: scale(1.35) translateY(-4px);
+      z-index: 2000 !important;
+    }
+    .facility-badge {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      border: 2px solid #ffffff;
+      box-shadow: 0 0 16px rgba(32, 185, 130, 0.9);
+      position: relative;
+      z-index: 2;
+    }
+    .facility-ring {
+      position: absolute;
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      top: -4px;
+      left: -4px;
+      opacity: 0.7;
+      animation: pulseRings 2.2s infinite ease-out;
+      pointer-events: none;
+    }
+
+    /* Category marker themes */
+    .cat-gov { background: radial-gradient(circle, #38bdf8, #0284c7); border-color: #e0f2fe; }
+    .cat-gov-ring { border: 2px solid #38bdf8; }
+    .cat-pvt { background: radial-gradient(circle, #2dd4bf, #0d9488); border-color: #ccfbf1; }
+    .cat-pvt-ring { border: 2px solid #2dd4bf; }
+    .cat-diag { background: radial-gradient(circle, #c084fc, #9333ea); border-color: #f3e8ff; }
+    .cat-diag-ring { border: 2px solid #c084fc; }
+    .cat-rad { background: radial-gradient(circle, #818cf8, #4f46e5); border-color: #e0e7ff; }
+    .cat-rad-ring { border: 2px solid #818cf8; }
+    .cat-dial { background: radial-gradient(circle, #fb923c, #ea580c); border-color: #ffedd5; }
+    .cat-dial-ring { border: 2px solid #fb923c; }
+    .cat-blood { background: radial-gradient(circle, #f87171, #dc2626); border-color: #fee2e2; }
+    .cat-blood-ring { border: 2px solid #f87171; }
+    .cat-pharm { background: radial-gradient(circle, #4ade80, #16a34a); border-color: #dcfce7; }
+    .cat-pharm-ring { border: 2px solid #4ade80; }
+    .cat-nursing { background: radial-gradient(circle, #2dd4bf, #0f766e); border-color: #ccfbf1; }
+    .cat-nursing-ring { border: 2px solid #2dd4bf; }
+    .cat-spec { background: radial-gradient(circle, #facc15, #ca8a04); border-color: #fef08a; }
+    .cat-spec-ring { border: 2px solid #facc15; }
+    .cat-emerg { background: radial-gradient(circle, #ef4444, #b91c1c); border-color: #fee2e2; }
+    .cat-emerg-ring { border: 2px solid #ef4444; }
+    .cat-home { background: radial-gradient(circle, #34d399, #059669); border-color: #d1fae5; }
+    .cat-home-ring { border: 2px solid #34d399; }
+    .cat-clinic { background: radial-gradient(circle, #38bdf8, #0369a1); border-color: #e0f2fe; }
+    .cat-clinic-ring { border: 2px solid #38bdf8; }
+
+    /* POPUP STYLING */
+    .maplibregl-popup-content {
+      background: rgba(11, 41, 34, 0.96) !important;
+      backdrop-filter: blur(25px) !important;
+      border: 1px solid rgba(85, 220, 203, 0.45) !important;
+      color: #fff !important;
+      border-radius: 18px !important;
+      padding: 16px 18px !important;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.85) !important;
+      max-width: 320px !important;
+    }
+    .maplibregl-popup-close-button {
+      color: #94a3b8 !important;
+      font-size: 20px !important;
+      padding: 4px 8px !important;
+    }
+    .popup-badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: rgba(32, 185, 130, 0.25);
+      color: var(--mint);
+      margin-bottom: 6px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- TOP HEADER -->
+  <header>
+    <div class="brand-wrap" onclick="resetIndiaMap()">
+      <div class="brand-logo-gem">+</div>
+      <div class="brand-title">HealthConnect <span>India</span></div>
+    </div>
+
+    <div class="nav-links">
+      <span class="nav-link active" id="navExplore" onclick="resetIndiaMap()">All India</span>
+      <span class="nav-link" onclick="focusCityLocation('guwahati')">Guwahati Hub</span>
+      <span class="nav-link" onclick="focusCityLocation('new-delhi')">Delhi</span>
+      <span class="nav-link" onclick="focusCityLocation('mumbai')">Mumbai</span>
+      <span class="nav-link" onclick="focusCityLocation('kolkata')">Kolkata</span>
+      <span class="nav-link" onclick="focusCityLocation('pune')">Pune</span>
+      <span class="nav-link" onclick="focusCityLocation('hyderabad')">Hyderabad</span>
+      <span class="nav-link" onclick="openDoctorChatbot()">🎙️ MBBS Doctor</span>
+    </div>
+
+    <div>
+      <button class="nav-btn" onclick="openDoctorChatbot()">🎙️ Consult Doctor</button>
+    </div>
+  </header>
+
+  <!-- MAP VIEWPORT -->
+  <div id="map-viewport">
+
+    <!-- MAPLIBRE GL JS MAP CONTAINER -->
+    <div id="map"></div>
+
+    <!-- THREE.JS PARTICLES CANVAS -->
+    <canvas id="particles-canvas"></canvas>
+
+    <!-- LIVE SEARCH BAR & CATEGORIES OVERLAY -->
+    <div class="search-hero-overlay">
+      <div class="title-banner">
+        <div class="badge-pill">
+          <span></span> National Healthcare Discovery Network
+        </div>
+        <h1 class="main-heading">
+          Find Healthcare. <span>Closer to You.</span>
+        </h1>
+        <p class="sub-heading">
+          Discover verified hospitals, doctors, diagnostics and healthcare services across Delhi, Mumbai, Kolkata, Pune, Hyderabad, Guwahati & Major Indian Cities.
+        </p>
+      </div>
+
+      <!-- SEARCH BAR -->
+      <div class="search-bar-wrap">
+        <div class="glass-search-box">
+          <span style="font-size: 18px; color: var(--mint);">🔍</span>
+          <input 
+            type="text" 
+            id="searchInput" 
+            class="search-input" 
+            placeholder="Search city, hospital, doctor or healthcare service (e.g. AIIMS, Blood Bank, MRI)..."
+            autocomplete="off"
+            oninput="handleSearch(this.value)"
+            onkeydown="if(event.key==='Enter') executeLiveSearch()"
+          />
+          <button class="search-action-btn" onclick="executeLiveSearch()">
+            Search Live ↗
+          </button>
+        </div>
+
+        <!-- AUTOCOMPLETE DROPDOWN -->
+        <div class="autocomplete-menu" id="autoMenu"></div>
+      </div>
+
+      <!-- QUICK CITY SWITCHER TRAY -->
+      <div class="city-pills-bar" id="cityPillsDock">
+        <button class="city-pill-btn active" onclick="resetIndiaMap()">🇮🇳 All India</button>
+        <button class="city-pill-btn" onclick="focusCityLocation('guwahati')">📍 Guwahati</button>
+        <button class="city-pill-btn" onclick="focusCityLocation('new-delhi')">📍 Delhi</button>
+        <button class="city-pill-btn" onclick="focusCityLocation('mumbai')">📍 Mumbai</button>
+        <button class="city-pill-btn" onclick="focusCityLocation('kolkata')">📍 Kolkata</button>
+        <button class="city-pill-btn" onclick="focusCityLocation('pune')">📍 Pune</button>
+        <button class="city-pill-btn" onclick="focusCityLocation('hyderabad')">📍 Hyderabad</button>
+        <button class="city-pill-btn" onclick="focusCityLocation('bengaluru')">📍 Bengaluru</button>
+      </div>
+
+      <!-- 14 CATEGORY FILTER CHIPS -->
+      <div class="category-chips-dock" id="chipsDock"></div>
+    </div>
+
+    <!-- RIGHT EXPLORATION RESULTS SIDEBAR -->
+    <div id="sidebar-results">
+      <div class="results-head">
+        <div>
+          <div style="font-size: 15px; font-weight: 800; color: #fff;" id="resultsTitle">Healthcare Discovery</div>
+          <div style="font-size: 11px; color: var(--mint);" id="resultsSubTitle">Google Maps Verified Facilities</div>
+        </div>
+        <button style="background: none; border: none; color: var(--muted); font-size: 20px; cursor: pointer;" onclick="closeResultsSidebar()">✕</button>
+      </div>
+      <div class="results-list" id="resultsList"></div>
+    </div>
+
+    <!-- BOTTOM STATS BAR -->
+    <div class="bottom-status-bar">
+      <div class="metrics-row">
+        <div class="metric-item">
+          <div class="metric-value" id="valFacilities">98</div>
+          <div class="metric-label">Verified Facilities</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-value" id="valCities">24</div>
+          <div class="metric-label">Cities Covered</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-value" id="valStates">35</div>
+          <div class="metric-label">States & UTs</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-value" id="valCategories">14</div>
+          <div class="metric-label">Healthcare Categories</div>
+        </div>
+      </div>
+
+      <button class="reset-btn" onclick="resetIndiaMap()">
+        ↺ Reset to India Overview
+      </button>
+    </div>
+
+  </div>
+
+  <!-- SCRIPT FOR THREE.JS ATMOSPHERIC PARTICLES -->
+  <script>
+    function initAtmosphere() {
+      const canvas = document.getElementById('particles-canvas');
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+      camera.position.z = 100;
+
+      const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+
+      const count = 180;
+      const geom = new THREE.BufferGeometry();
+      const pos = new Float32Array(count * 3);
+      for (let i = 0; i < count * 3; i += 3) {
+        pos[i] = (Math.random() - 0.5) * 220;
+        pos[i+1] = (Math.random() - 0.5) * 140;
+        pos[i+2] = (Math.random() - 0.5) * 80;
+      }
+      geom.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+
+      // Circular glowing particle texture
+      const pCan = document.createElement('canvas');
+      pCan.width = 32; pCan.height = 32;
+      const ctx = pCan.getContext('2d');
+      const g = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+      g.addColorStop(0, 'rgba(140, 232, 194, 0.85)');
+      g.addColorStop(0.4, 'rgba(85, 220, 203, 0.3)');
+      g.addColorStop(1, 'rgba(6, 28, 24, 0)');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, 32, 32);
+
+      const mat = new THREE.PointsMaterial({
+        size: 3.2,
+        map: new THREE.CanvasTexture(pCan),
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+      const points = new THREE.Points(geom, mat);
+      scene.add(points);
+
+      function loop() {
+        requestAnimationFrame(loop);
+        points.rotation.y += 0.0005;
+        points.rotation.x += 0.0002;
+        renderer.render(scene, camera);
+      }
+      loop();
+
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    }
+    window.addEventListener('DOMContentLoaded', initAtmosphere);
+  </script>
+
+  <!-- DATA & MAP ENGINE -->
+  <script src="india_cities.js"></script>
+  <script src="healthcare_categories.js"></script>
+  <script src="national_hospitals.js"></script>
+
+  <script>
+    let indiaGeo = null;
+    let selectedCategories = new Set(['all']);
+    let cityMarkers = {};
+    let facilityMarkers = [];
+    let currentActiveCityId = null;
+    let searchDebounce = null;
+    let activePopup = null;
+
+    // Category styling mappings
+    const categoryIconMap = {
+      government_hospitals: { icon: "🏛️", cls: "cat-gov", ring: "cat-gov-ring" },
+      private_hospitals: { icon: "🏥", cls: "cat-pvt", ring: "cat-pvt-ring" },
+      diagnostic_centres: { icon: "🔬", cls: "cat-diag", ring: "cat-diag-ring" },
+      doctor_clinics: { icon: "👨‍⚕️", cls: "cat-clinic", ring: "cat-clinic-ring" },
+      radiology_centres: { icon: "🩻", cls: "cat-rad", ring: "cat-rad-ring" },
+      dialysis_centres: { icon: "🩺", cls: "cat-dial", ring: "cat-dial-ring" },
+      blood_banks: { icon: "🩸", cls: "cat-blood", ring: "cat-blood-ring" },
+      pharmacies: { icon: "💊", cls: "cat-pharm", ring: "cat-pharm-ring" },
+      nursing_homes: { icon: "🛏️", cls: "cat-nursing", ring: "cat-nursing-ring" },
+      specialist_centres: { icon: "👁️", cls: "cat-spec", ring: "cat-spec-ring" },
+      home_healthcare: { icon: "🏠", cls: "cat-home", ring: "cat-home-ring" },
+      emergency_services: { icon: "🚨", cls: "cat-emerg", ring: "cat-emerg-ring" },
+      other_services: { icon: "✨", cls: "cat-pvt", ring: "cat-pvt-ring" }
+    };
+
+    // Use OpenFreeMap Dark Style (Free, High-Reliability Vector Map with no 403 blocks)
+    const map = new maplibregl.Map({
+      container: 'map',
+      style: 'https://tiles.openfreemap.org/styles/dark',
+      center: [78.9629, 22.5937], // India Center
+      zoom: 4.4,
+      pitch: 45,
+      bearing: -6
+    });
+
+    map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'bottom-right');
+
+    map.on('load', () => {
+      // 1. Load India States GeoJSON
+      fetch('india_states_enriched.geojson')
+        .then(r => r.json())
+        .then(geo => {
+          indiaGeo = geo;
+          map.addSource('india-states', {
+            type: 'geojson',
+            data: indiaGeo
+          });
+
+          // Emerald Glass Extruded Surface
+          map.addLayer({
+            id: 'states-glass-extrusion',
+            type: 'fill-extrusion',
+            source: 'india-states',
+            paint: {
+              'fill-extrusion-color': [
+                'case',
+                ['boolean', ['feature-state', 'hover'], false],
+                '#55dccb',
+                ['boolean', ['feature-state', 'selected'], false],
+                '#8ce8c2',
+                '#0b2922'
+              ],
+              'fill-extrusion-height': 12000,
+              'fill-extrusion-base': 0,
+              'fill-extrusion-opacity': 0.72
+            }
+          });
+
+          // Mint glowing boundary lines
+          map.addLayer({
+            id: 'states-glow-lines',
+            type: 'line',
+            source: 'india-states',
+            paint: {
+              'line-color': '#8ce8c2',
+              'line-width': 1.6,
+              'line-opacity': 0.85
+            }
+          });
+
+          let hoveredId = null;
+          map.on('mousemove', 'states-glass-extrusion', (e) => {
+            if (e.features && e.features.length > 0) {
+              map.getCanvas().style.cursor = 'pointer';
+              if (hoveredId !== null) {
+                map.setFeatureState({ source: 'india-states', id: hoveredId }, { hover: false });
+              }
+              hoveredId = e.features[0].id;
+              map.setFeatureState({ source: 'india-states', id: hoveredId }, { hover: true });
+            }
+          });
+
+          map.on('mouseleave', 'states-glass-extrusion', () => {
+            map.getCanvas().style.cursor = '';
+            if (hoveredId !== null) {
+              map.setFeatureState({ source: 'india-states', id: hoveredId }, { hover: false });
+            }
+            hoveredId = null;
+          });
+
+          map.on('click', 'states-glass-extrusion', (e) => {
+            if (e.features && e.features.length > 0) {
+              focusStateLocation(e.features[0].properties.NAME_1);
+            }
+          });
+        });
+
+      // 2. Add City Glass Markers
+      initCityMarkers();
+
+      // 3. Render 14 Category Chips
+      initCategoryChips();
+
+      // 4. Fetch Bottom Bar Stats from API
+      loadOverviewStats();
+    });
+
+    // CITY LEVEL MARKERS (High-level India View)
+    function initCityMarkers() {
+      majorIndianCities.forEach(city => {
+        const el = document.createElement('div');
+        el.className = 'city-marker-node';
+        el.title = `${city.name} (${city.state})`;
+        el.innerHTML = `
+          <div class="marker-ring-pulse"></div>
+          <div class="marker-glass-bubble"></div>
+        `;
+
+        el.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          focusCityLocation(city.id);
+        });
+
+        const marker = new maplibregl.Marker({ element: el })
+          .setLngLat([city.lng, city.lat])
+          .addTo(map);
+
+        cityMarkers[city.id] = { marker, element: el, city };
+      });
+    }
+
+    // INDIVIDUAL HEALTHCARE FACILITY MARKERS (Plotted when exploring a city or category)
+    function clearFacilityMarkers() {
+      facilityMarkers.forEach(m => m.remove());
+      facilityMarkers = [];
+      if (activePopup) {
+        activePopup.remove();
+        activePopup = null;
+      }
+    }
+
+    function plotFacilityMarkers(facilities) {
+      clearFacilityMarkers();
+      if (!facilities || facilities.length === 0) return;
+
+      facilities.forEach(fac => {
+        const theme = categoryIconMap[fac.category] || categoryIconMap['private_hospitals'];
+        const el = document.createElement('div');
+        el.className = 'facility-marker-node';
+        el.title = `${fac.name} (${fac.type})`;
+
+        el.innerHTML = `
+          <div class="facility-ring ${theme.ring}"></div>
+          <div class="facility-badge ${theme.cls}">${theme.icon}</div>
+        `;
+
+        // Interactive Popup
+        const popupContent = `
+          <div>
+            <div class="popup-badge">${fac.cityName} • ${fac.type}</div>
+            <div style="font-size: 14px; font-weight: 800; color: #fff; margin-bottom: 4px; display: flex; justify-content: space-between;">
+              <span>${fac.name}</span>
+              <span style="color: #fbbf24; font-size: 12px;">★ ${fac.rating}</span>
+            </div>
+            <div style="font-size: 11px; color: var(--muted); margin-bottom: 6px;">📍 ${fac.address}</div>
+            
+            <div style="font-size: 11px; color: var(--mint); margin-bottom: 8px;">
+              ${fac.beds > 0 ? `🛏️ <strong>${fac.beds} Inpatient Beds</strong> (${fac.icuBeds} ICU) • ` : ''}
+              📞 <a href="tel:${fac.phone}" style="color: var(--mint); text-decoration: none; font-weight: 700;">${fac.phone}</a>
+            </div>
+
+            ${fac.specialties && fac.specialties.length ? `
+              <div style="font-size: 10px; color: #94a3b8; margin-bottom: 8px;">
+                Specialties: ${fac.specialties.slice(0, 3).join(', ')}
+              </div>
+            ` : ''}
+
+            <div style="display: flex; gap: 8px; margin-top: 8px;">
+              <button onclick="openDoctorChatbot('${fac.name.replace(/'/g, "\\'")}')" style="flex: 1; background: #10b981; color: #061c18; border: none; padding: 6px 10px; border-radius: 6px; font-size: 11px; font-weight: 800; cursor: pointer;">🎙️ Talk to Doctor</button>
+              <a href="${fac.googleMapsUrl}" target="_blank" style="background: rgba(85,220,203,0.18); border: 1px solid rgba(85,220,203,0.4); color: var(--turquoise); padding: 6px 10px; border-radius: 6px; font-size: 11px; text-decoration: none; font-weight: 700; display: inline-flex; align-items: center;">Google Maps ↗</a>
+            </div>
+          </div>
+        `;
+
+        const popup = new maplibregl.Popup({ offset: 25, closeButton: true })
+          .setHTML(popupContent);
+
+        el.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          activePopup = popup;
+        });
+
+        const marker = new maplibregl.Marker({ element: el })
+          .setLngLat([fac.lng, fac.lat])
+          .setPopup(popup)
+          .addTo(map);
+
+        facilityMarkers.push(marker);
+      });
+    }
+
+    // 14 CATEGORY CHIPS
+    function initCategoryChips() {
+      const container = document.getElementById('chipsDock');
+      container.innerHTML = '';
+
+      healthcareCategories.forEach(cat => {
+        const chip = document.createElement('div');
+        chip.className = `category-pill ${selectedCategories.has(cat.id) ? 'active' : ''}`;
+        chip.innerHTML = `<span>${cat.icon}</span> <span>${cat.name}</span>`;
+        chip.onclick = () => onCategoryChipClick(cat.id, chip);
+        container.appendChild(chip);
+      });
+    }
+
+    function onCategoryChipClick(catId, chipElem) {
+      if (catId === 'all') {
+        selectedCategories.clear();
+        selectedCategories.add('all');
+        document.querySelectorAll('.category-pill').forEach(c => c.classList.remove('active'));
+        chipElem.classList.add('active');
+      } else {
+        selectedCategories.delete('all');
+        document.querySelectorAll('.category-pill')[0].classList.remove('active');
+
+        if (selectedCategories.has(catId)) {
+          selectedCategories.delete(catId);
+          chipElem.classList.remove('active');
+          if (selectedCategories.size === 0) {
+            selectedCategories.add('all');
+            document.querySelectorAll('.category-pill')[0].classList.add('active');
+          }
+        } else {
+          selectedCategories.add(catId);
+          chipElem.classList.add('active');
+        }
+      }
+      filterFacilitiesByCategories();
+    }
+
+    function filterFacilitiesByCategories() {
+      const arr = Array.from(selectedCategories);
+      let targetList = [...nationalHospitalDirectory];
+
+      if (currentActiveCityId) {
+        targetList = targetList.filter(h => 
+          h.cityId.toLowerCase() === currentActiveCityId.toLowerCase() ||
+          h.cityName.toLowerCase() === currentActiveCityId.toLowerCase() ||
+          (currentActiveCityId === 'new-delhi' && h.cityName.toLowerCase().includes('delhi'))
+        );
+      }
+
+      if (!arr.includes('all')) {
+        targetList = targetList.filter(h => {
+          return arr.some(cat => {
+            const norm = cat.replace(/-/g, '_');
+            if (h.category === norm || h.category === cat) return true;
+            if (cat === 'emergency_services' && h.emergency24x7) return true;
+            if (cat === 'blood_banks' && h.bloodBank) return true;
+            return false;
+          });
+        });
+      }
+
+      plotFacilityMarkers(targetList);
+      displaySidebarResults(targetList, currentActiveCityId ? `${getCityDisplayName(currentActiveCityId)} (${targetList.length} Facilities)` : `India Healthcare (${targetList.length} Facilities)`);
+    }
+
+    // SEARCH & AUTOCOMPLETE
+    function handleSearch(val) {
+      clearTimeout(searchDebounce);
+      const menu = document.getElementById('autoMenu');
+      const q = val.trim();
+
+      if (!q) {
+        menu.classList.remove('active');
+        menu.innerHTML = '';
+        return;
+      }
+
+      searchDebounce = setTimeout(() => {
+        fetch(`/api/healthcare/search?query=${encodeURIComponent(q)}`)
+          .then(r => r.json())
+          .then(data => renderAutocomplete(data))
+          .catch(() => {
+            // Client-side fallback for static GitHub Pages
+            const qLower = q.toLowerCase();
+            const matchedCities = (typeof majorIndianCities !== 'undefined' ? majorIndianCities : []).filter(c => 
+              c.name.toLowerCase().includes(qLower) || c.state.toLowerCase().includes(qLower)
+            );
+            const matchedInst = (typeof nationalHospitalDirectory !== 'undefined' ? nationalHospitalDirectory : []).filter(h => 
+              h.name.toLowerCase().includes(qLower) || 
+              h.address.toLowerCase().includes(qLower) || 
+              h.cityName.toLowerCase().includes(qLower) ||
+              h.type.toLowerCase().includes(qLower) ||
+              (h.specialties && h.specialties.some(s => s.toLowerCase().includes(qLower)))
+            );
+            renderAutocomplete({
+              suggestions: { cities: matchedCities.slice(0, 5), states: [] },
+              institutions: matchedInst
+            });
+          });
+      }, 240);
+    }
+
+    function renderAutocomplete(data) {
+      const menu = document.getElementById('autoMenu');
+      menu.innerHTML = '';
+      let count = 0;
+
+      if (data.suggestions.cities && data.suggestions.cities.length > 0) {
+        count++;
+        menu.innerHTML += `<div class="auto-group-title">Major Healthcare Cities</div>`;
+        data.suggestions.cities.forEach(c => {
+          menu.innerHTML += `
+            <div class="auto-item" onclick="chooseCity('${c.id}')">
+              <div>
+                <div class="item-main">📍 ${c.name}</div>
+                <div class="item-sub">${c.state}, India</div>
+              </div>
+              <span class="item-badge">${c.healthcareCount} Facilities</span>
+            </div>
+          `;
+        });
+      }
+
+      if (data.suggestions.states && data.suggestions.states.length > 0) {
+        count++;
+        menu.innerHTML += `<div class="auto-group-title">States & Territories</div>`;
+        data.suggestions.states.forEach(s => {
+          menu.innerHTML += `
+            <div class="auto-item" onclick="chooseState('${s.name}')">
+              <div>
+                <div class="item-main">🗺️ ${s.name}</div>
+                <div class="item-sub">State Code: ${s.code}</div>
+              </div>
+              <span class="item-badge">${s.facilities} Facilities</span>
+            </div>
+          `;
+        });
+      }
+
+      if (data.institutions && data.institutions.length > 0) {
+        count++;
+        menu.innerHTML += `<div class="auto-group-title">Verified Facilities (Google Maps Verified)</div>`;
+        data.institutions.slice(0, 6).forEach(h => {
+          const theme = categoryIconMap[h.category] || { icon: "🏥" };
+          menu.innerHTML += `
+            <div class="auto-item" onclick="chooseInstitution('${h.id}')">
+              <div>
+                <div class="item-main">${theme.icon} ${h.name}</div>
+                <div class="item-sub">${h.cityName} • ${h.address}</div>
+              </div>
+              <span class="item-badge" style="color: #38bdf8;">${h.beds > 0 ? h.beds + ' Beds' : 'Verified'}</span>
+            </div>
+          `;
+        });
+      }
+
+      if (count > 0) {
+        menu.classList.add('active');
+      } else {
+        menu.innerHTML = `<div style="padding: 16px; font-size: 13px; color: var(--muted); text-align: center;">No cities or facilities found matching query.</div>`;
+        menu.classList.add('active');
+      }
+    }
+
+    function chooseCity(cityId) {
+      document.getElementById('autoMenu').classList.remove('active');
+      const c = majorIndianCities.find(x => x.id === cityId);
+      if (c) document.getElementById('searchInput').value = c.name;
+      focusCityLocation(cityId);
+    }
+
+    function chooseState(stateName) {
+      document.getElementById('autoMenu').classList.remove('active');
+      document.getElementById('searchInput').value = stateName;
+      focusStateLocation(stateName);
+    }
+
+    function chooseInstitution(instId) {
+      document.getElementById('autoMenu').classList.remove('active');
+      const inst = nationalHospitalDirectory.find(h => h.id === instId);
+      if (!inst) return;
+
+      document.getElementById('searchInput').value = inst.name;
+      currentActiveCityId = inst.cityId;
+      updateActiveCityPill(inst.cityId);
+
+      map.flyTo({
+        center: [inst.lng, inst.lat],
+        zoom: 15.2,
+        pitch: 58,
+        bearing: -12,
+        duration: 1800
+      });
+
+      // Filter facilities for this city and highlight the selected one
+      const cityList = nationalHospitalDirectory.filter(h => h.cityId === inst.cityId);
+      plotFacilityMarkers(cityList);
+      displaySidebarResults(cityList, `${inst.cityName} (${cityList.length} Facilities)`);
+
+      setTimeout(() => {
+        const foundMarker = facilityMarkers.find(m => {
+          const pos = m.getLngLat();
+          return Math.abs(pos.lng - inst.lng) < 0.0001 && Math.abs(pos.lat - inst.lat) < 0.0001;
+        });
+        if (foundMarker) foundMarker.togglePopup();
+      }, 1900);
+    }
+
+    function executeLiveSearch() {
+      const q = document.getElementById('searchInput').value.trim();
+      document.getElementById('autoMenu').classList.remove('active');
+      if (!q) return;
+
+      const foundCity = majorIndianCities.find(c => c.name.toLowerCase().includes(q.toLowerCase()));
+      if (foundCity) {
+        focusCityLocation(foundCity.id);
+        return;
+      }
+
+      const foundInst = nationalHospitalDirectory.find(h => 
+        h.name.toLowerCase().includes(q.toLowerCase()) || 
+        h.address.toLowerCase().includes(q.toLowerCase())
+      );
+      if (foundInst) {
+        chooseInstitution(foundInst.id);
+        return;
+      }
+
+      focusStateLocation('Assam');
+    }
+
+    // FLY-TO ANIMATIONS & CITY FOCUS
+    function updateActiveCityPill(cityId) {
+      document.querySelectorAll('.city-pill-btn').forEach(btn => {
+        btn.classList.remove('active');
+        const text = btn.textContent.toLowerCase();
+        if (!cityId && text.includes('all india')) {
+          btn.classList.add('active');
+        } else if (cityId && (text.includes(cityId.replace('-', ' ')) || text.includes(cityId.split('-')[0]) || (cityId === 'new-delhi' && text.includes('delhi')))) {
+          btn.classList.add('active');
+        }
+      });
+    }
+
+    function getCityDisplayName(cityId) {
+      const c = majorIndianCities.find(x => x.id === cityId);
+      return c ? c.name : cityId;
+    }
+
+    function focusCityLocation(cityId) {
+      currentActiveCityId = cityId;
+      updateActiveCityPill(cityId);
+
+      const c = majorIndianCities.find(x => x.id === cityId);
+      if (!c) return;
+
+      map.flyTo({
+        center: [c.lng, c.lat],
+        zoom: 12.8,
+        pitch: 52,
+        bearing: -16,
+        duration: 1800
+      });
+
+      // Filter facilities for this city
+      const cityFacilities = nationalHospitalDirectory.filter(h => 
+        h.cityId.toLowerCase() === cityId.toLowerCase() ||
+        h.cityName.toLowerCase() === c.name.toLowerCase() ||
+        (cityId === 'new-delhi' && h.cityName.toLowerCase().includes('delhi'))
+      );
+
+      plotFacilityMarkers(cityFacilities);
+      displaySidebarResults(cityFacilities, `${c.name} (${c.state}) - ${cityFacilities.length} Facilities`);
+    }
+
+    function focusStateLocation(stateName) {
+      if (stateName.toLowerCase() === 'assam') {
+        currentActiveCityId = 'guwahati';
+        updateActiveCityPill('guwahati');
+        map.flyTo({
+          center: [92.9376, 26.2006],
+          zoom: 7.2,
+          pitch: 46,
+          bearing: -12,
+          duration: 2200
+        });
+        const assamFacs = nationalHospitalDirectory.filter(h => h.stateName.toLowerCase() === 'assam');
+        plotFacilityMarkers(assamFacs);
+        displaySidebarResults(assamFacs, 'Assam State Operational Hub');
+      } else {
+        const c = majorIndianCities.find(x => x.state.toLowerCase() === stateName.toLowerCase());
+        if (c) {
+          focusCityLocation(c.id);
+        }
+      }
+    }
+
+    function resetIndiaMap() {
+      currentActiveCityId = null;
+      updateActiveCityPill(null);
+      clearFacilityMarkers();
+      document.getElementById('sidebar-results').classList.remove('active');
+      document.getElementById('searchInput').value = '';
+
+      map.flyTo({
+        center: [78.9629, 22.5937],
+        zoom: 4.4,
+        pitch: 45,
+        bearing: -6,
+        duration: 2000
+      });
+    }
+
+    function displaySidebarResults(list, title) {
+      const sidebar = document.getElementById('sidebar-results');
+      document.getElementById('resultsTitle').textContent = title || 'Healthcare Facilities';
+      document.getElementById('resultsSubTitle').textContent = `${list.length} Verified Institutions`;
+      const container = document.getElementById('resultsList');
+      container.innerHTML = '';
+
+      if (!list || list.length === 0) {
+        container.innerHTML = `<div style="text-align: center; color: var(--muted); padding: 40px 10px; font-size: 13px;">No healthcare facilities match the active filter.</div>`;
+        sidebar.classList.add('active');
+        return;
+      }
+
+      list.forEach(h => {
+        const theme = categoryIconMap[h.category] || { icon: "🏥" };
+        const card = document.createElement('div');
+        card.className = 'hospital-card';
+        card.onclick = () => {
+          map.flyTo({ center: [h.lng, h.lat], zoom: 15, pitch: 55, duration: 1500 });
+          setTimeout(() => {
+            const foundMarker = facilityMarkers.find(m => {
+              const pos = m.getLngLat();
+              return Math.abs(pos.lng - h.lng) < 0.0001 && Math.abs(pos.lat - h.lat) < 0.0001;
+            });
+            if (foundMarker) foundMarker.togglePopup();
+          }, 1600);
+        };
+
+        card.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div class="hosp-title">${theme.icon} ${h.name}</div>
+            <span style="font-size: 11px; font-weight: 700; color: #fbbf24; white-space: nowrap;">★ ${h.rating}</span>
+          </div>
+          <div class="hosp-type">${h.cityName} • ${h.type}</div>
+          <div class="hosp-addr">📍 ${h.address}</div>
+          <div style="font-size: 11px; color: var(--mint); margin-top: 4px;">
+            ${h.beds > 0 ? `🛏 <strong>${h.beds} Beds</strong> (${h.icuBeds} ICU) • ` : ''}📞 ${h.phone}
+          </div>
+          <div style="display: flex; gap: 8px; margin-top: 10px;" onclick="event.stopPropagation()">
+            <button onclick="openDoctorChatbot('${h.name.replace(/'/g, "\\'")}')" style="background: #10b981; color: #061c18; border: none; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 800; cursor: pointer;">🎙️ Talk to Doctor</button>
+            <a href="${h.googleMapsUrl}" target="_blank" style="color: var(--turquoise); font-size: 11px; text-decoration: none; font-weight: 700; align-self: center;">Google Maps ↗</a>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+
+      sidebar.classList.add('active');
+    }
+
+    function closeResultsSidebar() {
+      document.getElementById('sidebar-results').classList.remove('active');
+    }
+
+    function loadOverviewStats() {
+      fetch('/api/india/overview')
+        .then(r => r.json())
+        .then(d => {
+          document.getElementById('valFacilities').textContent = d.verifiedFacilitiesCount || 98;
+          document.getElementById('valCities').textContent = d.totalCitiesCovered;
+          document.getElementById('valStates').textContent = d.totalStatesCovered;
+          document.getElementById('valCategories').textContent = d.categoriesCount;
+        })
+        .catch(() => {});
+    }
+
+    function openDoctorChatbot(hosp) {
+      if (window.triggerDoctorAgentForHospital) {
+        window.triggerDoctorAgentForHospital(hosp || 'All India Institute of Medical Sciences (AIIMS Delhi)');
+      }
+    }
+  </script>
+
+  <!-- CLINICAL MBBS DOCTOR VOICE AGENT & FORM AUTOFILL -->
+  <script src="clinical_engine.js"></script>
+  <script src="interactive_doctor_bot.js"></script>
+</body>
+</html>

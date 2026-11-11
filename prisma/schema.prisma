@@ -1,0 +1,273 @@
+// HealthConnect India - Production Database Schema
+// Aligned with ABDM (Ayushman Bharat Digital Mission) and Indian Healthcare Standards
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum InstitutionType {
+  GOVERNMENT_HOSPITAL
+  PRIVATE_HOSPITAL
+  NURSING_HOME
+  CLINIC
+  DIAGNOSTIC_CENTRE
+  PHARMACY
+  SPECIALIST_CENTRE
+  BLOOD_BANK
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  SUSPENDED
+  REJECTED
+}
+
+enum ConsultationStatus {
+  REQUEST_RECEIVED
+  AWAITING_DOCTOR_ASSIGNMENT
+  DOCTOR_ASSIGNED
+  DOCTOR_CALLING
+  CONSULTATION_ONGOING
+  CONSULTATION_COMPLETED
+  CANCELLED
+}
+
+enum ConsultationMode {
+  VOICE
+  VIDEO
+  IN_PERSON
+}
+
+enum DiagnosticStatus {
+  PRESCRIBED
+  PATIENT_APPROVED
+  SAMPLE_COLLECTION_SCHEDULED
+  COLLECTOR_ASSIGNED
+  SAMPLE_COLLECTED
+  LAB_PROCESSING
+  REPORT_UPLOADED
+  REPORT_VERIFIED
+}
+
+enum PharmacyOrderStatus {
+  ORDER_PLACED
+  PRESCRIPTION_VERIFIED
+  DISPENSING
+  DISPATCHED
+  DELIVERED
+  CANCELLED
+}
+
+model HealthcareInstitution {
+  id                  String             @id @default(uuid())
+  institutionCode      String             @unique // e.g. HCI-AS-GUW-001
+  name                String
+  type                InstitutionType
+  isGovernment        Boolean            @default(false)
+  registrationNumber  String
+  stateMedicalCouncil String?
+  verificationStatus  VerificationStatus @default(VERIFIED)
+  
+  // Geographical Data (PostGIS compatible coordinates)
+  latitude            Float
+  longitude           Float
+  address             String
+  city                String
+  district            String
+  state               String             @default("Assam")
+  pincode             String
+  
+  // Operational Details
+  phone               String
+  emergencyPhone      String?
+  email               String?
+  website             String?
+  openingHours        String             @default("24x7")
+  isEmergency24x7     Boolean            @default(false)
+  hasBloodBank        Boolean            @default(false)
+  hasIcu              Boolean            @default(false)
+  totalBeds           Int                @default(0)
+  icuBeds             Int                @default(0)
+  
+  // Specialties & Schemes (JSON string arrays)
+  specialties         String[]
+  departments         String[]
+  empanelledSchemes   String[]           // PM-JAY, Atal Amrit Abhiyan, CGHS
+  
+  // Relations
+  doctors             Doctor[]
+  consultations       ConsultationQueue[]
+  diagnostics         DiagnosticOrder[]
+  pharmacyOrders      PharmacyOrder[]
+  
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+}
+
+model Doctor {
+  id                  String             @id @default(uuid())
+  doctorCode          String             @unique // e.g. HCI-DOC-1024
+  fullName            String
+  qualifications      String             // MBBS, MD, MS, DM, MCh
+  speciality          String
+  registrationNumber  String             @unique
+  medicalCouncil      String             // Assam Medical Council (AMC) / NMC
+  verificationStatus  VerificationStatus @default(VERIFIED)
+  
+  consultationFee     Float              // in INR
+  isAvailableOnline   Boolean            @default(true)
+  languages           String[]           @default(["English", "Assamese", "Hindi"])
+  
+  institutionId       String?
+  institution         HealthcareInstitution? @relation(fields: [institutionId], references: [id])
+  
+  consultations       ConsultationQueue[]
+  prescriptions       Prescription[]
+  
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+}
+
+model Patient {
+  id                  String             @id @default(uuid())
+  patientCode         String             @unique // HCI-PAT-XXXXXX
+  fullName            String
+  phone               String             @unique // Indian 10-digit mobile
+  age                 Int
+  gender              String
+  address             String
+  district            String
+  state               String             @default("Assam")
+  preferredLanguage   String             @default("English")
+  emergencyContact    String
+  
+  // Clinical Baseline
+  allergies           String?
+  chronicConditions   String?
+  existingMedication  String?
+  consentGiven        Boolean            @default(true)
+  consentTimestamp    DateTime           @default(now())
+  
+  consultations       ConsultationQueue[]
+  prescriptions       Prescription[]
+  diagnostics         DiagnosticOrder[]
+  pharmacyOrders      PharmacyOrder[]
+  
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+}
+
+model ConsultationQueue {
+  id                  String             @id @default(uuid())
+  caseId              String             @unique // e.g. CAS-2026-AS-00892
+  
+  patientId           String
+  patient             Patient            @relation(fields: [patientId], references: [id])
+  
+  doctorId            String?
+  doctor              Doctor?            @relation(fields: [doctorId], references: [id])
+  
+  institutionId       String?
+  institution         HealthcareInstitution? @relation(fields: [institutionId], references: [id])
+  
+  chiefComplaint      String
+  isEmergency         Boolean            @default(false)
+  mode                ConsultationMode   @default(VOICE)
+  status              ConsultationStatus @default(REQUEST_RECEIVED)
+  
+  doctorNotes         String?
+  scheduledAt         DateTime           @default(now())
+  completedAt         DateTime?
+  
+  prescription        Prescription?
+  diagnosticOrders    DiagnosticOrder[]
+  
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+}
+
+model Prescription {
+  id                  String             @id @default(uuid())
+  prescriptionCode    String             @unique // RX-2026-XXXXX
+  
+  consultationId      String             @unique
+  consultation        ConsultationQueue  @relation(fields: [consultationId], references: [id])
+  
+  patientId           String
+  patient             Patient            @relation(fields: [patientId], references: [id])
+  
+  doctorId            String
+  doctor              Doctor             @relation(fields: [doctorId], references: [id])
+  
+  diagnosis           String
+  medicationsJson     String             // JSON string array of medicines, dosage, frequency
+  lifestyleAdvice     String?
+  followUpDays        Int?
+  
+  pharmacyOrders      PharmacyOrder[]
+  
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+}
+
+model DiagnosticOrder {
+  id                  String             @id @default(uuid())
+  orderCode           String             @unique // DIAG-2026-XXXXX
+  
+  consultationId      String?
+  consultation        ConsultationQueue? @relation(fields: [consultationId], references: [id])
+  
+  patientId           String
+  patient             Patient            @relation(fields: [patientId], references: [id])
+  
+  institutionId       String?
+  institution         HealthcareInstitution? @relation(fields: [institutionId], references: [id])
+  
+  testNames           String[]
+  totalCostInr        Float
+  homeCollection      Boolean            @default(true)
+  status              DiagnosticStatus   @default(PRESCRIBED)
+  
+  reportUrl           String?
+  verifiedByLabDoctor String?
+  
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+}
+
+model PharmacyOrder {
+  id                  String             @id @default(uuid())
+  orderNumber         String             @unique // PHARM-2026-XXXXX
+  
+  prescriptionId      String?
+  prescription        Prescription?      @relation(fields: [prescriptionId], references: [id])
+  
+  patientId           String
+  patient             Patient            @relation(fields: [patientId], references: [id])
+  
+  pharmacyId          String?
+  pharmacy            HealthcareInstitution? @relation(fields: [pharmacyId], references: [id])
+  
+  totalAmountInr      Float
+  status              PharmacyOrderStatus @default(ORDER_PLACED)
+  deliveryAddress     String
+  
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+}
+
+model WhatsAppNotificationAudit {
+  id                  String             @id @default(uuid())
+  recipientPhone      String
+  templateName        String
+  category            String             // OTP, DOCTOR_ASSIGNED, REPORT_READY, PHARMACY_DISPATCH
+  payloadJson         String
+  deliveryStatus      String             @default("SENT") // SENT, DELIVERED, READ, FAILED
+  timestamp           DateTime           @default(now())
+}

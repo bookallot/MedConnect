@@ -1,0 +1,161 @@
+[
+  {
+    "name": "Guwahati (Capital Region)",
+    "district": "Kamrup Metropolitan",
+    "lat": 26.1445,
+    "lng": 91.7362,
+    "type": "State Medical Hub",
+    "majorHospitals": [
+      "Gauhati Medical College & Hospital (GMCH)",
+      "AIIMS Guwahati (Changsari)",
+      "Dr. B. Borooah Cancer Institute"
+    ],
+    "beds": 4850,
+    "oxygenPlants": 12,
+    "ambulances": 48
+  },
+  {
+    "name": "Dibrugarh",
+    "district": "Dibrugarh",
+    "lat": 27.4728,
+    "lng": 94.912,
+    "type": "Upper Assam Apex Hub",
+    "majorHospitals": [
+      "Assam Medical College & Hospital (AMCH - Oldest in NE)"
+    ],
+    "beds": 2200,
+    "oxygenPlants": 6,
+    "ambulances": 24
+  },
+  {
+    "name": "Silchar",
+    "district": "Cachar",
+    "lat": 24.8333,
+    "lng": 92.7789,
+    "type": "Barak Valley Regional Hub",
+    "majorHospitals": [
+      "Silchar Medical College & Hospital (SMCH)"
+    ],
+    "beds": 1650,
+    "oxygenPlants": 5,
+    "ambulances": 20
+  },
+  {
+    "name": "Jorhat",
+    "district": "Jorhat",
+    "lat": 26.7509,
+    "lng": 94.2037,
+    "type": "Zonal Medical Centre",
+    "majorHospitals": [
+      "Jorhat Medical College & Hospital (JMCH)"
+    ],
+    "beds": 1400,
+    "oxygenPlants": 4,
+    "ambulances": 18
+  },
+  {
+    "name": "Tezpur",
+    "district": "Sonitpur",
+    "lat": 26.6528,
+    "lng": 92.7926,
+    "type": "North Bank Regional Hub",
+    "majorHospitals": [
+      "Tezpur Medical College & Hospital (TMCH)",
+      "LGB Regional Institute of Mental Health"
+    ],
+    "beds": 1550,
+    "oxygenPlants": 4,
+    "ambulances": 16
+  },
+  {
+    "name": "Diphu",
+    "district": "Karbi Anglong",
+    "lat": 25.8457,
+    "lng": 93.4323,
+    "type": "Hills District Medical Hub",
+    "majorHospitals": [
+      "Diphu Medical College & Hospital (DMCH)"
+    ],
+    "beds": 850,
+    "oxygenPlants": 3,
+    "ambulances": 12
+  },
+  {
+    "name": "Barpeta",
+    "district": "Barpeta",
+    "lat": 26.3213,
+    "lng": 91.0048,
+    "type": "Lower Assam Medical Hub",
+    "majorHospitals": [
+      "Fakhruddin Ali Ahmed Medical College & Hospital (FAAMCH)"
+    ],
+    "beds": 1200,
+    "oxygenPlants": 4,
+    "ambulances": 15
+  },
+  {
+    "name": "Lakhimpur",
+    "district": "Lakhimpur",
+    "lat": 27.2361,
+    "lng": 94.1037,
+    "type": "Sub-Himalayan Zonal Hub",
+    "majorHospitals": [
+      "Lakhimpur Medical College & Hospital (LMCH)"
+    ],
+    "beds": 900,
+    "oxygenPlants": 3,
+    "ambulances": 14
+  },
+  {
+    "name": "Kokrajhar",
+    "district": "Kokrajhar",
+    "lat": 26.4014,
+    "lng": 90.2718,
+    "type": "BTR Regional Healthcare Centre",
+    "majorHospitals": [
+      "Kokrajhar Medical College & Hospital (KMCH)"
+    ],
+    "beds": 800,
+    "oxygenPlants": 3,
+    "ambulances": 12
+  },
+  {
+    "name": "Nagaon",
+    "district": "Nagaon",
+    "lat": 26.3466,
+    "lng": 92.684,
+    "type": "Central Assam Medical Hub",
+    "majorHospitals": [
+      "Nagaon Medical College & Hospital (NMCH)"
+    ],
+    "beds": 950,
+    "oxygenPlants": 3,
+    "ambulances": 16
+  },
+  {
+    "name": "Dhubri",
+    "district": "Dhuburi",
+    "lat": 26.0207,
+    "lng": 89.9744,
+    "type": "Western Frontier Medical Hub",
+    "majorHospitals": [
+      "Dhubri Medical College & Hospital (DMCH)"
+    ],
+    "beds": 850,
+    "oxygenPlants": 3,
+    "ambulances": 14
+  },
+  {
+    "name": "Tinsukia",
+    "district": "Tinsukia",
+    "lat": 27.4922,
+    "lng": 95.3468,
+    "type": "Industrial & Tea Belt Centre",
+    "majorHospitals": [
+      "Tinsukia Civil Hospital & Medical College"
+    ],
+    "beds": 750,
+    "oxygenPlants": 2,
+    "ambulances": 14
+  }
+]
