@@ -56,7 +56,41 @@ MedConnect India is a next-generation healthcare discovery platform delivering a
 
 ---
 
-## 🚀 Live Demo & Deployment
+## 📸 Working Feature Showcase
+
+### 1. Interactive 3D Emerald Glass India Healthcare Map
+Futuristic dark emerald aesthetic, glowing state boundaries, atmospheric particle field, and instant city switcher pills tray.
+![3D India Map](screenshots/01_india_3d_glass_map.png)
+
+### 2. City Deep-Dive & Verified Facility Pinpointing (Guwahati, Assam)
+Zoom-in navigation displaying verified institutions with live emergency status, bed counts, and Google Maps routing.
+![City Healthcare Exploration](screenshots/02_guwahati_city_focus.png)
+
+### 3. Verified Institution Details & Direct Doctor Referral
+Comprehensive clinical capability cards with ICU beds, blood bank status, direct desk numbers, and "Talk to Doctor" initiation.
+![Hospital Details Popup](screenshots/03_hospital_marker_popup.png)
+
+### 4. Live Multi-Category Healthcare Search & Autocomplete
+Instant search across 98+ verified hospitals, specialty clinics, diagnostics, and categories with keyboard navigation.
+![Live Search Autocomplete](screenshots/04_live_search_autocomplete.png)
+
+### 5. Trilingual Clinical Voice & Chatbot (Assamese, Hindi, English)
+Dr. Debabrata Roy (MBBS, MD) conducting preliminary clinical consultation in native language with voice synthesis and speech input.
+![Trilingual Doctor AI](screenshots/05_doctor_chatbot_trilingual.png)
+
+### 6. Real-Time Patient Triage & Clinical Intake Sync
+Live on-screen patient registration and clinical triage card automatically formulating symptoms and urgent triage levels.
+![Patient Intake Report](screenshots/06_patient_intake_report.png)
+
+### 7. Dual-Tone Telephone Ringing Simulation
+Web Audio API synthesized 400Hz + 450Hz telecom ringing incoming call screen connecting the patient directly to the attending physician.
+![Incoming Doctor Call](screenshots/07_doctor_telephone_calling_agent.png)
+
+### 8. Live Doctor Telephone Consultation & Neighborhood Clinic Routing
+Empathic voice consultation, evidence-based pharmaceutical prescriptions with dosages, dietary modifications, and automatic 3D map fly-to on the nearest neighborhood clinic.
+![Active Doctor Call](screenshots/08_clinical_consultation_call_active.png)
+
+---
 
 - **GitHub Pages**: [https://bookallot.github.io/MedConnect/](https://bookallot.github.io/MedConnect/)
 - **Local Development**:
